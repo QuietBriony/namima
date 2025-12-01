@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>Namima v0.5</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- Tone.js CDN -->
+  <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+</head>
+<body>
+  <canvas id="bg"></canvas>
+
+  <main class="panel">
+    <header class="panel-header">
+      <div class="title">
+        <h1>Namima</h1>
+        <p class="subtitle">waves between warm / space / chaos</p>
+      </div>
+      <div class="transport">
+        <button id="startBtn">▶ START</button>
+        <button id="stopBtn">■ STOP</button>
+      </div>
+    </header>
+
+    <section class="sliders">
+      <div class="slider">
+        <label for="warm">Warm</label>
+        <input id="warm" type="range" min="0" max="100" value="60" />
+      </div>
+      <div class="slider">
+        <label for="space">Space</label>
+        <input id="space" type="range" min="0" max="100" value="70" />
+      </div>
+      <div class="slider">
+        <label for="chaos">Chaos</label>
+        <input id="chaos" type="range" min="0" max="100" value="30" />
+      </div>
+      <div class="slider">
+        <label for="density">Density</label>
+        <input id="density" type="range" min="0" max="100" value="50" />
+      </div>
+    </section>
+
+    <section class="info">
+      <p>
+        Namima is a browser-based generative engine.<br />
+        Use <strong>Warm / Space / Chaos / Density</strong> to drift between
+        lo-fi tape, deep ambient pads, and broken granular patterns.
+      </p>
+      <p class="hint">
+        iOS / mobile の場合は、画面をタップしてから START を押してください。
+      </p>
+    </section>
+  </main>
+
+  <script src="engine.js"></script>
+</body>
+</html>

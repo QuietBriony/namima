@@ -33,8 +33,12 @@
 
   function resizeCanvas() {
     if (!canvas) return;
-    width = canvas.width = window.innerWidth * window.devicePixelRatio;
-    height = canvas.height = window.innerHeight * window.devicePixelRatio;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    width = canvas.width;
+    height = canvas.height;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
   function drawLoop(t) {
@@ -45,8 +49,7 @@
     const space = state.space;
     const chaos = state.chaos;
 
-    // 背景グラデ
-    const baseHue = 210 + (space - 0.5) * 60; // Spaceで色相少し変化
+    const baseHue = 210 + (space - 0.5) * 60;
     const grad = ctx.createRadialGradient(
       width * 0.2,
       height * 0.1,
@@ -66,7 +69,6 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
-    // 波の輪っか
     const cx = width / 2;
     const cy = height / 2;
     const rings = 6 + Math.floor(6 * state.density);
@@ -103,7 +105,6 @@
     Tone.Transport.swing = 0.12;
     Tone.Transport.swingSubdivision = "16n";
 
-    // マスター
     const masterGain = new Tone.Gain(0.9);
     const masterComp = new Tone.Compressor({
       threshold: -18,
@@ -114,10 +115,8 @@
     const masterLimit = new Tone.Limiter(-0.5);
 
     masterGain.chain(masterComp, masterLimit, Tone.Destination);
-
     nodes.masterGain = masterGain;
 
-    // レイヤーごとのバス
     const warmBus = new Tone.Gain(0.6).connect(masterGain);
     const spaceBus = new Tone.Gain(0.8).connect(masterGain);
     const chaosBus = new Tone.Gain(0.6).connect(masterGain);
@@ -128,9 +127,8 @@
     nodes.chaosBus = chaosBus;
     nodes.bassBus = bassBus;
 
-    // --- Warm layer: pad + tape noise + drift ---
+    // --- Warm layer ---
 
-    // Pad synth
     const padReverb = new Tone.Reverb({
       decay: 5,
       preDelay: 0.15,
@@ -145,14 +143,12 @@
 
     padSynth.chain(padFilter, padReverb, warmBus);
 
-    // Warm noise
     const noise = new Tone.Noise("pink");
     const noiseFilter = new Tone.Filter(800, "lowpass", -24);
     const noiseGain = new Tone.Gain(0.12);
 
     noise.chain(noiseFilter, noiseGain, warmBus);
 
-    // Wow & flutter: pitch drift via LFO on pad synth detune
     const driftLFO = new Tone.LFO({
       frequency: 0.12,
       min: -8,
@@ -168,7 +164,7 @@
     nodes.noiseGain = noiseGain;
     nodes.driftLFO = driftLFO;
 
-    // --- Space layer: deep pads + FDN-ish verb ---
+    // --- Space layer ---
 
     const spaceChorus = new Tone.Chorus({
       frequency: 0.15,
@@ -191,7 +187,7 @@
 
     const spaceSynth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: "sine" },
-      envelope: { attack: 2.0, decay: 1.0, sustain: 0.9, release: 6.0 },
+      envelope: { attack: 2.0, decay: 1.0, sustain: 0.8, release: 6.0 },
     });
 
     spaceSynth.chain(spaceChorus, spaceDelay, spaceVerb, spaceBus);
@@ -201,98 +197,76 @@
     nodes.spaceDelay = spaceDelay;
     nodes.spaceVerb = spaceVerb;
 
-    // --- Chaos layer: noisy grains / clicks / bitcrush ---
+    // --- Chaos layer ---
 
     const chaosNoise = new Tone.Noise("white");
-    const chaosCrusher = new Tone.BitCrusher(4);
-    const chaosFilter = new Tone.Filter(4000, "bandpass", -12);
-    const chaosGain = new Tone.Gain(0.0); // densityで上げる
+    const chaosBit = new Tone.BitCrusher(4);
+    const chaosFilter = new Tone.Filter(1200, "bandpass", -12);
+    const chaosGain = new Tone.Gain(0.05);
 
-    chaosNoise.chain(chaosCrusher, chaosFilter, chaosGain, chaosBus);
+    chaosNoise.chain(chaosBit, chaosFilter, chaosGain, chaosBus);
 
     nodes.chaosNoise = chaosNoise;
-    nodes.chaosCrusher = chaosCrusher;
+    nodes.chaosBit = chaosBit;
     nodes.chaosFilter = chaosFilter;
     nodes.chaosGain = chaosGain;
 
-    // --- Bass / Rhythm core ---
+    // --- Bass layer ---
 
-    const kick = new Tone.MembraneSynth({
-      pitchDecay: 0.02,
-      octaves: 5,
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.001, decay: 0.32, sustain: 0.0, release: 0.05 },
-    }).connect(bassBus);
-
-    const hat = new Tone.NoiseSynth({
-      noise: { type: "white" },
-      envelope: { attack: 0.001, decay: 0.08, sustain: 0.0 },
-    }).connect(bassBus);
-
+    const bassFilter = new Tone.Filter(120, "lowpass", -24);
     const bass = new Tone.MonoSynth({
       oscillator: { type: "sawtooth" },
-      filter: { type: "lowpass", frequency: 120, rolloff: -24 },
-      envelope: { attack: 0.01, decay: 0.25, sustain: 0.4, release: 0.3 },
+      envelope: { attack: 0.02, decay: 0.3, sustain: 0.5, release: 0.8 },
       filterEnvelope: {
         attack: 0.01,
         decay: 0.2,
         sustain: 0.2,
-        release: 0.3,
+        release: 0.4,
         baseFrequency: 60,
-        octaves: 2,
+        octaves: 3,
       },
-    }).connect(bassBus);
+    });
 
-    nodes.kick = kick;
-    nodes.hat = hat;
+    bass.chain(bassFilter, bassBus);
+
     nodes.bass = bass;
+    nodes.bassFilter = bassFilter;
 
-    // --- Sequences / loops ---
+    // --- Patterns ---
 
-    // 和声：C系の浮遊コード
-    const chords = [
-      ["C3", "G3", "D4", "E4"],
-      ["A2", "E3", "C4", "G4"],
-      ["F2", "C3", "G3", "E4"],
-      ["D2", "A2", "E3", "C4"],
+    const padChords = [
+      ["C4", "G4", "Bb4", "D5"],
+      ["F4", "C5", "Eb5", "G5"],
+      ["D4", "A4", "C5", "E5"],
+      ["Bb3", "F4", "A4", "C5"],
     ];
 
     const padLoop = new Tone.Loop((time) => {
-      const idx = Math.floor(Math.random() * chords.length);
-      const voices = chords[idx];
-      const vel = 0.35 + state.warm * 0.25;
+      const idx = Math.floor(Math.random() * padChords.length);
+      const chord = padChords[idx];
+      const vel = 0.5 + state.warm * 0.4;
 
-      voices.forEach((note, i) => {
-        padSynth.triggerAttackRelease(
-          note,
-          "2m",
-          time + i * 0.03,
-          vel * (0.9 + i * 0.02)
-        );
-      });
+      padSynth.triggerAttackRelease(chord, "2m", time, vel);
 
-      // Space層もまれに鳴らす
       if (Math.random() < 0.4 + state.space * 0.4) {
-        const spaceChord = chords[(idx + 1) % chords.length].map((n) =>
-          n.replace(/\d/, (d) => String(Number(d) + 1))
+        const up = chord.map((n) =>
+          Tone.Frequency(n).transpose(7).toNote()
         );
-        spaceSynth.triggerAttackRelease(spaceChord, "4m", time + 0.4, 0.25);
+        padSynth.triggerAttackRelease(up, "1m", time + Tone.Time("1m"), vel * 0.7);
       }
     }, "4m").start(0);
 
     nodes.padLoop = padLoop;
 
-    // ベース：ゆるいグルーヴ
     const bassNotes = ["C2", "G1", "A1", "F1"];
 
     const bassLoop = new Tone.Loop((time) => {
       const idx = Math.floor(Math.random() * bassNotes.length);
-      const baseTime = time + (Math.random() * 0.1 - 0.05); // 少し前後にずらす
+      const baseTime = time + (Math.random() * 0.1 - 0.05);
       const vel = 0.45 + state.density * 0.35;
 
       bass.triggerAttackRelease(bassNotes[idx], "8n", baseTime, vel);
 
-      // 16分でゴーストノート
       if (Math.random() < 0.3 + state.chaos * 0.3) {
         bass.triggerAttackRelease(
           bassNotes[idx],
@@ -305,96 +279,66 @@
 
     nodes.bassLoop = bassLoop;
 
-    // ドラム
     const drumLoop = new Tone.Loop((time) => {
       const dens = state.density;
 
-      // Kick：4つ打ち寄り
-      for (let i = 0; i < 4; i++) {
-        const t = time + Tone.Time("4n") * i;
-        kick.triggerAttackRelease("C1", "8n", t, 0.9);
+      if (Math.random() < 0.85) {
+        const kick = new Tone.MembraneSynth().connect(bassBus);
+        kick.triggerAttackRelease("C1", "8n", time, 0.8 + dens * 0.2);
       }
 
-      // Hat：DensityとChaosでパターン変化
-      for (let i = 0; i < 8; i++) {
-        const p = 0.2 + dens * 0.4 + state.chaos * 0.2;
-        if (Math.random() < p) {
-          const off = (Math.random() - 0.5) * 0.04; // ゆらぎ
-          hat.triggerAttackRelease("8n", time + Tone.Time("8n") * i + off, 0.4);
-        }
+      if (Math.random() < 0.35 + dens * 0.25) {
+        const hat = new Tone.MetalSynth({
+          frequency: 450,
+          envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+          harmonicity: 5.1,
+          modulationIndex: 32,
+          resonance: 4000,
+          octaves: 1.5,
+        }).connect(spaceBus);
+        hat.triggerAttackRelease("16n", time + Tone.Time("8n"), 0.3 + dens * 0.3);
       }
-    }, "1m").start(0);
+
+      if (Math.random() < state.chaos * 0.7) {
+        chaosNoise.start(time).stop(time + 0.05 + state.chaos * 0.15);
+      }
+    }, "1m").start("2m");
 
     nodes.drumLoop = drumLoop;
 
-    // Chaos: グラニュラーっぽいクリック / burst
-    const chaosLoop = new Tone.Loop((time) => {
-      const chaos = state.chaos;
-      const density = state.density;
-      const grains = 2 + Math.floor(6 * density * chaos);
-
-      if (chaos <= 0.02) return;
-
-      for (let i = 0; i < grains; i++) {
-        const tOffset = (Math.random() * 0.5 - 0.25) * Tone.Time("4n");
-        const dur = (0.01 + Math.random() * 0.06) * (1 + chaos * 1.5);
-        const amp = 0.05 + chaos * 0.35;
-
-        // Chaos Noiseゲインを一瞬上げる
-        chaosGain.gain.setValueAtTime(amp, time + tOffset);
-        chaosGain.gain.exponentialRampToValueAtTime(
-          0.0001,
-          time + tOffset + dur
-        );
-      }
-    }, "2n").start("0:2");
-
-    nodes.chaosLoop = chaosLoop;
-
-    // Noise起動
     noise.start();
     chaosNoise.start();
-
-    // 最初のパラメータ反映
-    applyStateToAudio();
   }
 
   function applyStateToAudio() {
-    const { warm, space, chaos, density } = state;
-
     if (!nodes.masterGain) return;
 
-    // Warm: padのCutoff / Drift / Noise量
-    const baseCut = 900 + warm * 1400;
-    nodes.padFilter.frequency.rampTo(baseCut, 1.5);
+    const warm = state.warm;
+    const space = state.space;
+    const chaos = state.chaos;
+    const density = state.density;
 
-    nodes.noiseGain.gain.rampTo(0.05 + warm * 0.18, 2.0);
-    nodes.driftLFO.min = -4 - warm * 6;
-    nodes.driftLFO.max = 4 + warm * 6;
+    nodes.noiseGain &&
+      nodes.noiseGain.gain.rampTo(0.05 + warm * 0.25, 0.2);
+    nodes.padFilter &&
+      nodes.padFilter.frequency.rampTo(1200 + warm * 800, 0.5);
+    nodes.padReverb &&
+      (nodes.padReverb.wet.value = 0.3 + space * 0.4);
+    nodes.spaceDelay &&
+      (nodes.spaceDelay.feedback.value = 0.1 + space * 0.3);
+    nodes.spaceVerb &&
+      (nodes.spaceVerb.wet.value = 0.4 + space * 0.5);
+    nodes.chaosBit &&
+      (nodes.chaosBit.bits = 2 + Math.floor(4 * chaos));
+    nodes.chaosGain &&
+      nodes.chaosGain.gain.rampTo(0.01 + chaos * 0.18, 0.3);
 
-    // Space: reverb / delay / chorus depth
-    nodes.spaceVerb.decay = 5 + space * 7;
-    nodes.spaceVerb.wet.rampTo(0.35 + space * 0.45, 2.0);
-    nodes.spaceDelay.feedback.rampTo(0.2 + space * 0.5, 3.0);
-    nodes.spaceChorus.depth = 0.25 + space * 0.4;
-
-    // Chaos: bit crush / bandpass / chaos gain limit
-    const bits = 4 - Math.floor(chaos * 2); // 4〜2bit
-    nodes.chaosCrusher.bits = Math.max(1, bits);
-    nodes.chaosFilter.Q.value = 0.7 + chaos * 10;
-    // chaosLoop内で使うのでここでは最大値だけ管理
-
-    // Density: 発音数 / busのバランス
-    const masterScale = 0.5 + density * 0.6;
-    nodes.masterGain.gain.rampTo(masterScale, 2.0);
-
-    nodes.warmBus.gain.rampTo(0.4 + warm * 0.4, 2.0);
-    nodes.spaceBus.gain.rampTo(0.3 + space * 0.6, 2.0);
-    nodes.chaosBus.gain.rampTo(chaos * 0.8, 2.0);
+    const baseGain = 0.7 + density * 0.2;
+    nodes.masterGain.gain.rampTo(baseGain, 0.4);
   }
 
   // =========================
-  // UI / events
+  // UI binding
   // =========================
 
   function bindUI() {
@@ -405,12 +349,16 @@
     chaosSlider = document.getElementById("chaos");
     densitySlider = document.getElementById("density");
 
-    if (!startBtn || !stopBtn) return;
-
-    startBtn.addEventListener("click", handleStart);
-    stopBtn.addEventListener("click", handleStop);
+    if (startBtn) {
+      startBtn.addEventListener("click", handleStart);
+    }
+    if (stopBtn) {
+      stopBtn.addEventListener("click", handleStop);
+    }
 
     const onSlider = () => {
+      if (!warmSlider || !spaceSlider || !chaosSlider || !densitySlider)
+        return;
       state.warm = warmSlider.valueAsNumber / 100;
       state.space = spaceSlider.valueAsNumber / 100;
       state.chaos = chaosSlider.valueAsNumber / 100;
@@ -458,14 +406,37 @@
   }
 
   // =========================
+  // Global AudioContext unlock (iOS / mobile)
+  // =========================
+  function setupGlobalUnlock() {
+    const tryUnlock = async () => {
+      try {
+        await Tone.start();
+      } catch (e) {
+        console.warn("Tone.start() unlock failed", e);
+      } finally {
+        document.body.removeEventListener("touchstart", tryUnlock);
+        document.body.removeEventListener("touchend", tryUnlock);
+        document.body.removeEventListener("mousedown", tryUnlock);
+        document.body.removeEventListener("click", tryUnlock);
+      }
+    };
+
+    document.body.addEventListener("touchstart", tryUnlock, { once: true });
+    document.body.addEventListener("touchend", tryUnlock, { once: true });
+    document.body.addEventListener("mousedown", tryUnlock, { once: true });
+    document.body.addEventListener("click", tryUnlock, { once: true });
+  }
+
+  // =========================
   // Boot
   // =========================
 
   window.addEventListener("DOMContentLoaded", () => {
+    setupGlobalUnlock();
     initCanvas();
     bindUI();
 
-    // 初期値を state に同期
     warmSlider && (state.warm = warmSlider.valueAsNumber / 100);
     spaceSlider && (state.space = spaceSlider.valueAsNumber / 100);
     chaosSlider && (state.chaos = chaosSlider.valueAsNumber / 100);

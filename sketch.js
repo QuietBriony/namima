@@ -161,26 +161,31 @@ function draw(){
   // draw particles
   for(const p of particles){
     // force from field gradient
-    const g = fieldGrad(p.x, p.y, tNow);
-    // rotate gradient slightly for swirl feel
-    const fx = -g.gy * SETTINGS.forceScale;
-    const fy =  g.gx * SETTINGS.forceScale;
+    // ループの前に1回だけ
+colorMode(HSB, 360, 255, 255, 255);
 
-    // apply + tiny drift
-    p.vx = (p.vx + fx * 0.016) * SETTINGS.friction;
-    p.vy = (p.vy + fy * 0.016) * SETTINGS.friction;
+for(const p of particles){
+  const fg = fieldAndGrad(p.x, p.y, tNow);
 
-    p.x += p.vx;
-    p.y += p.vy;
+  // swirl feel
+  const fx = -fg.gy * SETTINGS.forceScale;
+  const fy =  fg.gx * SETTINGS.forceScale;
 
-    // wrap
-    if(p.x < 0) p.x += width;
-    if(p.x > width) p.x -= width;
-    if(p.y < 0) p.y += height;
-    if(p.y > height) p.y -= height;
+  p.vx = (p.vx + fx * 0.016) * SETTINGS.friction;
+  p.vy = (p.vy + fy * 0.016) * SETTINGS.friction;
 
-    // brightness from field magnitude
-    const fv = field(p.x, p.y, tNow);
+  p.x += p.vx;
+  p.y += p.vy;
+
+  if(p.x < 0) p.x += width;
+  if(p.x > width) p.x -= width;
+  if(p.y < 0) p.y += height;
+  if(p.y > height) p.y -= height;
+
+  const b = 40 + 140 * Math.min(1, Math.abs(fg.v) * 1.6);
+  fill(p.hue, 160, b, 170 * p.glow);
+  circle(p.x, p.y, p.w + Math.abs(fg.v) * 2.0);
+}
     const b = 40 + 140 * Math.min(1, Math.abs(fv) * 1.6);
 
     // draw

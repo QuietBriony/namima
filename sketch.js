@@ -5,17 +5,15 @@ let sources = []; // ripple sources
 let started = false;
 
 const SETTINGS = {
-  particleCountMobile: 650,
-  particleCountDesktop: 1100,
-  maxSources: 10,
-  waveSpeed: 520,        // px per second
-  waveFreq: 0.045,       // spatial frequency
-  timeFreq: 2.2,         // temporal frequency
-  distDecay: 0.0023,     // decay per px
-  timeDecay: 1.25,       // decay per second
-  forceScale: 26,        // force magnitude
-  friction: 0.92,
-  sampleEps: 2.0,        // gradient sampling
+  particleCountMobile: 260,   // 650→260
+  particleCountDesktop: 900,  // 1100→900
+  maxSources: 5,              // 10→5
+  waveFreq: 0.05,
+  timeFreq: 2.2,
+  distDecay: 0.0026,
+  timeDecay: 1.1,
+  forceScale: 18,             // 26→18
+  friction: 0.93,
 };
 
 function isMobile(){

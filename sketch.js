@@ -95,28 +95,39 @@ function touchStarted(){
 }
 
 // field value at (x,y): sum of ripple contributions
-function field(x,y, tNow){
+function fieldAndGrad(x, y, tNow){
   let v = 0;
+  let gx = 0;
+  let gy = 0;
+
   for(const src of sources){
     const dt = tNow - src.t0;
     if(dt < 0) continue;
 
     const dx = x - src.x;
     const dy = y - src.y;
-    const d = Math.sqrt(dx*dx + dy*dy);
+    const d  = Math.sqrt(dx*dx + dy*dy) + 1e-6; // avoid zero
 
-    // traveling wave: phase depends on distance and time
-    const phase = (d * SETTINGS.waveFreq) - (dt * SETTINGS.timeFreq);
-
-    // amplitude decay
     const amp = src.strength
       * Math.exp(-d * SETTINGS.distDecay)
       * Math.exp(-dt / SETTINGS.timeDecay);
 
-    // smooth wave
-    v += amp * Math.sin(phase);
+    const phase = (d * SETTINGS.waveFreq) - (dt * SETTINGS.timeFreq);
+
+    // field value
+    const s = Math.sin(phase);
+    const c = Math.cos(phase);
+    v += amp * s;
+
+    // gradient (approx):
+    // d/dx sin(phase) = cos(phase) * d(phase)/dx
+    // phase depends on d, and d depends on x => d(phase)/dx = waveFreq * (dx/d)
+    const k = amp * c * SETTINGS.waveFreq / d;
+    gx += k * dx;
+    gy += k * dy;
   }
-  return v;
+
+  return { v, gx, gy };
 }
 
 // approximate gradient of field (for particle force direction)

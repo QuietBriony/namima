@@ -36,3 +36,9 @@ Namima は **Music のライト版**ではなく、
 - public pages 向けの公開体験を想定
 - **no samples / no dependencies** 方針（必要な体験を自前実装中心で維持）
 
+Mood profile schema: [docs/mood-profile-schema.md](docs/mood-profile-schema.md)
+
+Mood profiles: [profiles/mood-profiles.json](../profiles/mood-profiles.json)
+
+Input/output examples: [docs/input-output-example.md](docs/input-output-example.md)
+

@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "policy": {
+    "stores_audio": false,
+    "stores_samples": false,
+    "stores_metadata_only": true,
+    "purpose": "public-friendly ambient mood profile, not copying"
+  },
+  "profiles": [
+    {
+      "id": "water_day",
+      "label": "water_day",
+      "description": "clear water motion, gentle shimmer, and a light pulse for daytime background listening.",
+      "input_bias": {
+        "brightness": "medium_high",
+        "warmth": "medium",
+        "water_motion": "high",
+        "garden_air": "medium",
+        "rhythm_density": "low",
+        "low_end_pressure": "low",
+        "texture_amount": "low_medium",
+        "melody_presence": "minimal",
+        "sleepiness": "low",
+        "family_safe": true,
+        "duration_intent": "continuous"
+      },
+      "ambient_translation": {
+        "pad": ["clear transparent pad", "gentle attack", "sustained"],
+        "water_texture": ["gentle shimmer", "slow ripples", "soft spray tails"],
+        "air_layer": ["light airy tone", "transparent high-mid presence"],
+        "soft_pulse": ["very light", "non-intrusive"],
+        "melody_fragment": ["single sustained tones", "low harmonic movement"],
+        "room_space": ["clean and bright", "small to medium reverb"],
+        "transition": ["slow cross-fade", "no sudden jumps"],
+        "density": ["low"],
+        "brightness": ["medium_high"],
+        "loudness_safety": ["low peak", "gentle headroom"]
+      },
+      "avoid": ["harsh clicks", "aggressive compression", "strong bass sweeps"]
+    },
+    {
+      "id": "garden_morning",
+      "label": "garden_morning",
+      "description": "soft air, green calm, and subtle organic texture for gentle daytime listening.",
+      "input_bias": {
+        "brightness": "medium",
+        "warmth": "soft_warm",
+        "water_motion": "low",
+        "garden_air": "high",
+        "rhythm_density": "none",
+        "low_end_pressure": "very_low",
+        "texture_amount": "low",
+        "melody_presence": "minimal",
+        "sleepiness": "low",
+        "family_safe": true,
+        "duration_intent": "continuous"
+      },
+      "ambient_translation": {
+        "pad": ["warm soft pad", "slow evolving harmonics"],
+        "water_texture": ["barely moving droplets", "gentle ambience"],
+        "air_layer": ["breeze-like shimmer", "open room top-end"],
+        "soft_pulse": ["minimal pulse", "long release"],
+        "melody_fragment": ["organic interval motifs", "very simple movement"],
+        "room_space": ["mild depth", "natural decay"],
+        "transition": ["gradual blend", "consistent phase"],
+        "density": ["low_to_medium"],
+        "brightness": ["medium"],
+        "loudness_safety": ["soft limiter", "stable envelope"]
+      },
+      "avoid": ["dark pads", "machine-like stutter", "aggressive transient layers"]
+    },
+    {
+      "id": "family_room",
+      "label": "family_room",
+      "description": "safe low-volume background that stays warm and clear without harsh edges.",
+      "input_bias": {
+        "brightness": "medium",
+        "warmth": "soft_warm",
+        "water_motion": "medium",
+        "garden_air": "medium",
+        "rhythm_density": "low",
+        "low_end_pressure": "very_low",
+        "texture_amount": "low",
+        "melody_presence": "minimal",
+        "sleepiness": "medium",
+        "family_safe": true,
+        "duration_intent": "loopable"
+      },
+      "ambient_translation": {
+        "pad": ["warm pad", "steady sustain"],
+        "water_texture": ["subtle movement", "low noise texture"],
+        "air_layer": ["light ambient lift", "no harsh top-end spikes"],
+        "soft_pulse": ["occasional soft pulse", "low level only"],
+        "melody_fragment": ["short restrained motifs", "single line"],
+        "room_space": ["close room", "short reverb"],
+        "transition": ["smooth fade", "no hard stop"],
+        "density": ["low"],
+        "brightness": ["medium"],
+        "loudness_safety": ["family-safe level", "clipped peaks avoided"]
+      },
+      "avoid": ["aggressive bass", "dark industrial tone", "high density percussion"]
+    },
+    {
+      "id": "soft_sleep",
+      "label": "soft_sleep",
+      "description": "slow, low brightness, minimal pulse with gentle fade behavior.",
+      "input_bias": {
+        "brightness": "low",
+        "warmth": "soft_warm",
+        "water_motion": "low",
+        "garden_air": "low",
+        "rhythm_density": "none",
+        "low_end_pressure": "low",
+        "texture_amount": "low",
+        "melody_presence": "none",
+        "sleepiness": "high",
+        "family_safe": true,
+        "duration_intent": "continuous"
+      },
+      "ambient_translation": {
+        "pad": ["very soft pad", "slow fading tones"],
+        "water_texture": ["almost still water shimmer", "delicate sheen"],
+        "air_layer": ["quiet transparent layer", "gentle breath-like tone"],
+        "soft_pulse": ["near-silent", "barely perceived"],
+        "melody_fragment": ["very sparse", "long gaps"],
+        "room_space": ["clear but intimate", "damped reflections"],
+        "transition": ["gentle fade in/out", "no abrupt change"],
+        "density": ["very_low"],
+        "brightness": ["low"],
+        "loudness_safety": ["very low peak", "constant low dynamics"]
+      },
+      "avoid": ["strong transients", "high-pitched chirps", "rhythmic repetition"]
+    },
+    {
+      "id": "transparent_evening",
+      "label": "transparent_evening",
+      "description": "clear air, soft reflective tone, and slightly cooler space for evening drift.",
+      "input_bias": {
+        "brightness": "medium_low",
+        "warmth": "cool",
+        "water_motion": "medium",
+        "garden_air": "high",
+        "rhythm_density": "low",
+        "low_end_pressure": "low",
+        "texture_amount": "medium",
+        "melody_presence": "minimal",
+        "sleepiness": "medium",
+        "family_safe": true,
+        "duration_intent": "loopable"
+      },
+      "ambient_translation": {
+        "pad": ["clean cool pad", "slight movement"],
+        "water_texture": ["thin shimmer", "wide airy splash"],
+        "air_layer": ["crisp clear air", "cool top-end"],
+        "soft_pulse": ["fine pulse", "non-intrusive timing"],
+        "melody_fragment": ["short reflective phrase", "sparse intervals"],
+        "room_space": ["clear but contained", "cool reflections"],
+        "transition": ["slow fade", "minimal contrast"],
+        "density": ["low_to_medium"],
+        "brightness": ["medium_low"],
+        "loudness_safety": ["dynamic headroom", "no clipping"]
+      },
+      "avoid": ["loud transient accents", "low-end emphasis", "agitated textures"]
+    }
+  ]
+}

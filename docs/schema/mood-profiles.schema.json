@@ -1,0 +1,315 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Namima Mood Profiles",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "policy",
+    "profiles"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stores_audio",
+        "stores_samples",
+        "stores_metadata_only",
+        "purpose"
+      ],
+      "properties": {
+        "stores_audio": {
+          "type": "boolean",
+          "const": false
+        },
+        "stores_samples": {
+          "type": "boolean",
+          "const": false
+        },
+        "stores_metadata_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "purpose": {
+          "type": "string"
+        }
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "description",
+          "input_bias",
+          "ambient_translation",
+          "avoid"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "water_day",
+              "garden_morning",
+              "family_room",
+              "soft_sleep",
+              "transparent_evening"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "input_bias": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "brightness",
+              "warmth",
+              "water_motion",
+              "garden_air",
+              "rhythm_density",
+              "low_end_pressure",
+              "texture_amount",
+              "melody_presence",
+              "sleepiness",
+              "family_safe"
+            ],
+            "properties": {
+              "brightness": {
+                "type": "string",
+                "enum": [
+                  "very_low",
+                  "low",
+                  "low_to_mid",
+                  "medium_low",
+                  "medium",
+                  "medium_high",
+                  "high",
+                  "very_high"
+                ]
+              },
+              "warmth": {
+                "type": "string",
+                "enum": [
+                  "very_low",
+                  "low",
+                  "low_to_mid",
+                  "medium_low",
+                  "medium",
+                  "medium_high",
+                  "high",
+                  "very_high",
+                  "soft_warm",
+                  "cool"
+                ]
+              },
+              "water_motion": {
+                "type": "string",
+                "enum": [
+                  "very_low",
+                  "low",
+                  "low_to_mid",
+                  "medium_low",
+                  "medium",
+                  "medium_high",
+                  "high",
+                  "very_high"
+                ]
+              },
+              "garden_air": {
+                "type": "string",
+                "enum": [
+                  "very_low",
+                  "low",
+                  "low_to_mid",
+                  "medium_low",
+                  "medium",
+                  "medium_high",
+                  "high",
+                  "very_high"
+                ]
+              },
+              "rhythm_density": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "low",
+                  "low_to_mid",
+                  "medium",
+                  "medium_high",
+                  "high",
+                  "very_high"
+                ]
+              },
+              "low_end_pressure": {
+                "type": "string",
+                "enum": [
+                  "very_low",
+                  "low",
+                  "low_to_mid",
+                  "medium_low",
+                  "medium",
+                  "medium_high",
+                  "high",
+                  "very_high"
+                ]
+              },
+              "texture_amount": {
+                "type": "string",
+                "enum": [
+                  "very_low",
+                  "low",
+                  "low_medium",
+                  "low_to_mid",
+                  "medium_low",
+                  "medium",
+                  "medium_high",
+                  "high",
+                  "very_high",
+                  "gentle"
+                ]
+              },
+              "melody_presence": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "minimal",
+                  "gentle",
+                  "present",
+                  "high",
+                  "safe"
+                ]
+              },
+              "sleepiness": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "low",
+                  "medium",
+                  "high",
+                  "very_high"
+                ]
+              },
+              "family_safe": {
+                "type": "boolean"
+              },
+              "duration_intent": {
+                "type": "string",
+                "enum": [
+                  "short",
+                  "continuous",
+                  "loopable"
+                ]
+              }
+            }
+          },
+          "ambient_translation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pad",
+              "water_texture",
+              "air_layer",
+              "soft_pulse",
+              "melody_fragment",
+              "room_space",
+              "transition"
+            ],
+            "properties": {
+              "pad": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              },
+              "water_texture": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              },
+              "air_layer": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              },
+              "soft_pulse": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              },
+              "melody_fragment": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              },
+              "room_space": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              },
+              "transition": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              },
+              "density": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              },
+              "brightness": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              },
+              "loudness_safety": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 0
+              }
+            }
+          },
+          "avoid": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 0
+          }
+        }
+      }
+    }
+  }
+}

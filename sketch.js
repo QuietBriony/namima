@@ -4,15 +4,17 @@ let sources = [];
 let started = false;
 
 const SETTINGS = {
-  particleCountMobile: 260,
-  particleCountDesktop: 900,
-  maxSources: 5,
-  waveFreq: 0.05,
-  timeFreq: 2.2,
-  distDecay: 0.0026,
-  timeDecay: 1.1,
-  forceScale: 18,
-  friction: 0.93,
+  particleCountMobile: 220,
+  particleCountDesktop: 820,
+  maxSources: 6,
+  waveFreq: 0.055,
+  timeFreq: 2.0,
+  distDecay: 0.0024,
+  timeDecay: 1.25,
+  forceScale: 22,
+  friction: 0.925,
+  trailAlpha: 18,
+  lineScale: 10,
 };
 
 function isMobile(){
@@ -32,6 +34,7 @@ function setup(){
 
   const overlay = document.getElementById("startOverlay");
   overlay.addEventListener("pointerdown", async (e) => {
+    e.preventDefault();
     // iOS対策：ここで確実にユーザー操作として音を開始
     await startAudio();
     overlay.style.display = "none";
@@ -60,9 +63,9 @@ function makeParticle(x,y){
     x, y,
     vx: random(-0.2,0.2),
     vy: random(-0.2,0.2),
-    hue: random(170, 290),
-    w: random(0.8, 2.0),
-    glow: random(0.35, 0.85),
+    hue: random(190, 285),
+    w: random(0.6, 1.8),
+    glow: random(0.25, 0.85),
   };
 }
 
@@ -125,10 +128,13 @@ function fieldAndGrad(x, y, tNow){
 
 function draw(){
   noStroke();
-  fill(5, 6, 10, 28);
+  fill(5, 6, 10, SETTINGS.trailAlpha);
   rect(0,0,width,height);
 
   const tNow = millis()/1000;
+
+  // prune
+  sources = sources.filter(s => (tNow - s.t0) < 7.2);
 
   // energy → audio
   let energy = 0;
@@ -137,10 +143,11 @@ function draw(){
     if(dt < 0) continue;
     energy += s.strength * Math.exp(-dt / SETTINGS.timeDecay);
   }
-  energy = Math.min(1, energy / 2.2);
+  energy = Math.min(1, energy / 2.0);
   if(window.AudioEngine) window.AudioEngine.updateEnergy(energy);
 
   colorMode(HSB, 360, 255, 255, 255);
+  blendMode(BLEND);
 
   for(const p of particles){
     const fg = fieldAndGrad(p.x, p.y, tNow);
@@ -150,6 +157,9 @@ function draw(){
     p.vx = (p.vx + fx * 0.016) * SETTINGS.friction;
     p.vy = (p.vy + fy * 0.016) * SETTINGS.friction;
 
+    const px = p.x;
+    const py = p.y;
+
     p.x += p.vx;
     p.y += p.vy;
 
@@ -158,11 +168,22 @@ function draw(){
     if(p.y < 0) p.y += height;
     if(p.y > height) p.y -= height;
 
-    const b = 40 + 140 * Math.min(1, Math.abs(fg.v) * 1.6);
-    fill(p.hue, 160, b, 170 * p.glow);
-    circle(p.x, p.y, p.w + Math.abs(fg.v) * 2.0);
-  }
+    const ridge = Math.min(1, Math.abs(fg.v) * 1.8);
+    const b = 18 + 140 * ridge + 40 * energy;
+    const a = 40 + 140 * ridge * p.glow;
+    const lx = p.vx * SETTINGS.lineScale * (0.6 + ridge);
+    const ly = p.vy * SETTINGS.lineScale * (0.6 + ridge);
 
-  // prune
-  sources = sources.filter(s => (tNow - s.t0) < 6.5);
+    stroke(p.hue + ridge * 18, 170, b, a);
+    strokeWeight(p.w);
+    line(px, py, px - lx, py - ly);
+
+    if(ridge > 0.35){
+      blendMode(ADD);
+      stroke(p.hue + ridge * 20, 200, 180, 35 + 80 * ridge);
+      strokeWeight(p.w * 1.8);
+      line(px, py, px - lx * 0.9, py - ly * 0.9);
+      blendMode(BLEND);
+    }
+  }
 }

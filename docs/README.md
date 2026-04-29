@@ -44,3 +44,5 @@ Input/output examples: [docs/input-output-example.md](docs/input-output-example.
 
 Ambient interaction contract: [docs/ambient-interaction-contract.md](docs/ambient-interaction-contract.md)
 
+namima-lab harvest closure: [docs/namima-lab-harvest-closure.md](docs/namima-lab-harvest-closure.md)
+

@@ -42,3 +42,5 @@ Mood profiles: [profiles/mood-profiles.json](../profiles/mood-profiles.json)
 
 Input/output examples: [docs/input-output-example.md](docs/input-output-example.md)
 
+Ambient interaction contract: [docs/ambient-interaction-contract.md](docs/ambient-interaction-contract.md)
+

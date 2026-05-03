@@ -4,6 +4,19 @@ let sources = [];
 let orbitBodies = [];
 let started = false;
 let visualMode = "water";
+let activeMood = "water_day";
+let autoOn = false;
+let autoIndex = 0;
+let nextAutoAt = 0;
+
+const AUTO_ROUTE = ["water_day", "garden_morning", "family_room", "transparent_evening"];
+const MOOD_VISUAL = {
+  water_day: { hueShift: 0, brightness: 1.0, response: 1.0, trailDelta: 0 },
+  garden_morning: { hueShift: -24, brightness: 0.88, response: 0.82, trailDelta: 2 },
+  family_room: { hueShift: 12, brightness: 0.72, response: 0.62, trailDelta: 5 },
+  soft_sleep: { hueShift: -10, brightness: 0.46, response: 0.36, trailDelta: 9 },
+  transparent_evening: { hueShift: 18, brightness: 0.82, response: 0.74, trailDelta: 3 },
+};
 
 const SETTINGS = {
   particleCountMobile: 220,
@@ -23,6 +36,8 @@ const SETTINGS = {
   orbitLineDistance: 310,
   orbitDamping: 0.982,
   orbitMaxSpeed: 1.15,
+  autoMinMs: 180000,
+  autoMaxMs: 480000,
 };
 
 function isMobile(){
@@ -48,6 +63,7 @@ function setup(){
     await startAudio();
     overlay.style.display = "none";
     started = true;
+    syncAudioMood();
 
     addSource(width*0.5, height*0.5, 0.55);
   }, {passive:false});
@@ -61,6 +77,24 @@ function setup(){
     }, {passive:false});
     setVisualMode(visualMode);
   }
+
+  const autoToggle = document.getElementById("autoToggle");
+  if(autoToggle){
+    autoToggle.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setAuto(!autoOn);
+    }, {passive:false});
+  }
+
+  const moodSelect = document.getElementById("moodSelect");
+  if(moodSelect){
+    moodSelect.addEventListener("change", (e) => {
+      setMood(e.target.value, { manual: true });
+    });
+  }
+
+  updateControlUi();
 }
 
 async function startAudio(){
@@ -115,13 +149,63 @@ function setVisualMode(mode){
   visualMode = mode;
   const modeToggle = document.getElementById("modeToggle");
   if(modeToggle){
-    modeToggle.textContent = visualMode === "orbit" ? "Orbit" : "Water";
+    modeToggle.textContent = visualMode === "orbit" ? "Visual: Orbit" : "Visual: Water";
     modeToggle.setAttribute("aria-label", `Switch visual mode, current mode ${modeToggle.textContent}`);
   }
 }
 
 function cycleVisualMode(){
   setVisualMode(visualMode === "water" ? "orbit" : "water");
+}
+
+function moodVisual(){
+  return MOOD_VISUAL[activeMood] ?? MOOD_VISUAL.water_day;
+}
+
+function updateControlUi(){
+  const autoToggle = document.getElementById("autoToggle");
+  if(autoToggle) autoToggle.textContent = autoOn ? "Auto: On" : "Auto: Off";
+
+  const moodSelect = document.getElementById("moodSelect");
+  if(moodSelect) moodSelect.value = activeMood;
+}
+
+function syncAudioMood(){
+  if(!window.AudioEngine) return;
+  if(window.AudioEngine.setMood) window.AudioEngine.setMood(activeMood);
+  if(window.AudioEngine.setAuto) window.AudioEngine.setAuto(autoOn);
+}
+
+function scheduleNextAuto(nowMs){
+  nextAutoAt = nowMs + random(SETTINGS.autoMinMs, SETTINGS.autoMaxMs);
+}
+
+function setMood(mood, options={}){
+  if(!MOOD_VISUAL[mood]) return;
+  activeMood = mood;
+  if(options.manual){
+    const routeIndex = AUTO_ROUTE.indexOf(activeMood);
+    if(routeIndex >= 0) autoIndex = routeIndex;
+  }
+  syncAudioMood();
+  updateControlUi();
+}
+
+function setAuto(enabled){
+  autoOn = Boolean(enabled);
+  if(autoOn && nextAutoAt <= millis()) scheduleNextAuto(millis());
+  syncAudioMood();
+  updateControlUi();
+}
+
+function advanceAutoMood(nowMs){
+  if(!autoOn) return;
+  if(nextAutoAt <= 0) scheduleNextAuto(nowMs);
+  if(nowMs < nextAutoAt) return;
+
+  autoIndex = (autoIndex + 1) % AUTO_ROUTE.length;
+  setMood(AUTO_ROUTE[autoIndex]);
+  scheduleNextAuto(nowMs);
 }
 
 function addSource(x,y, strength=0.7){
@@ -206,11 +290,13 @@ function fieldAndGrad(x, y, tNow){
 
 function draw(){
   noStroke();
-  const trailAlpha = visualMode === "orbit" ? SETTINGS.orbitTrailAlpha : SETTINGS.trailAlpha;
+  const mood = moodVisual();
+  const trailAlpha = (visualMode === "orbit" ? SETTINGS.orbitTrailAlpha : SETTINGS.trailAlpha) + mood.trailDelta;
   fill(5, 6, 10, trailAlpha);
   rect(0,0,width,height);
 
   const tNow = millis()/1000;
+  advanceAutoMood(millis());
 
   // prune
   sources = sources.filter(s => (tNow - s.t0) < 7.2);
@@ -220,7 +306,7 @@ function draw(){
   for(const s of sources){
     const dt = tNow - s.t0;
     if(dt < 0) continue;
-    energy += s.strength * Math.exp(-dt / SETTINGS.timeDecay);
+    energy += s.strength * Math.exp(-dt / SETTINGS.timeDecay) * mood.response;
   }
   energy = Math.min(1, energy / 2.0);
   if(window.AudioEngine) window.AudioEngine.updateEnergy(energy);
@@ -233,6 +319,7 @@ function draw(){
 }
 
 function drawWaterMode(tNow, energy){
+  const mood = moodVisual();
   colorMode(HSB, 360, 255, 255, 255);
   blendMode(BLEND);
 
@@ -256,18 +343,18 @@ function drawWaterMode(tNow, energy){
     if(p.y > height) p.y -= height;
 
     const ridge = Math.min(1, Math.abs(fg.v) * 1.8);
-    const b = 18 + 140 * ridge + 40 * energy;
+    const b = (18 + 140 * ridge + 40 * energy) * mood.brightness;
     const a = 40 + 140 * ridge * p.glow;
     const lx = p.vx * SETTINGS.lineScale * (0.6 + ridge);
     const ly = p.vy * SETTINGS.lineScale * (0.6 + ridge);
 
-    stroke(p.hue + ridge * 18, 170, b, a);
+    stroke(p.hue + mood.hueShift + ridge * 18, 170, b, a);
     strokeWeight(p.w);
     line(px, py, px - lx, py - ly);
 
     if(ridge > 0.35){
       blendMode(ADD);
-      stroke(p.hue + ridge * 20, 200, 180, 35 + 80 * ridge);
+      stroke(p.hue + mood.hueShift + ridge * 20, 200, 180 * mood.brightness, 35 + 80 * ridge);
       strokeWeight(p.w * 1.8);
       line(px, py, px - lx * 0.9, py - ly * 0.9);
       blendMode(BLEND);
@@ -278,6 +365,7 @@ function drawWaterMode(tNow, energy){
 function drawOrbitMode(tNow, energy){
   if(!orbitBodies.length) initOrbitBodies();
 
+  const mood = moodVisual();
   colorMode(HSB, 360, 255, 255, 255);
   blendMode(BLEND);
 
@@ -321,7 +409,7 @@ function drawOrbitMode(tNow, energy){
     body.vx = (body.vx + ax) * SETTINGS.orbitDamping;
     body.vy = (body.vy + ay) * SETTINGS.orbitDamping;
 
-    const maxSpeed = SETTINGS.orbitMaxSpeed + energy * 0.45;
+    const maxSpeed = SETTINGS.orbitMaxSpeed + energy * 0.45 * mood.response;
     const speed = Math.sqrt(body.vx*body.vx + body.vy*body.vy);
     if(speed > maxSpeed){
       body.vx = body.vx / speed * maxSpeed;
@@ -350,7 +438,7 @@ function drawOrbitMode(tNow, energy){
 
       const closeness = 1 - d / lineDistance;
       const pulse = 0.5 + 0.5 * Math.sin(tNow * 0.55 + a.phase + b.phase);
-      stroke(202 + pulse * 24, 105, 210, (18 + 34 * energy) * closeness);
+      stroke(202 + mood.hueShift + pulse * 24, 105, 210 * mood.brightness, (18 + 34 * energy) * closeness);
       strokeWeight(0.45 + closeness * 0.6);
       line(a.x, a.y, b.x, b.y);
     }
@@ -361,7 +449,7 @@ function drawOrbitMode(tNow, energy){
     const dt = tNow - src.t0;
     const ring = 34 + dt * 74;
     const alpha = 42 * src.strength * Math.exp(-dt / 1.4);
-    stroke(196, 92, 220, alpha);
+    stroke(196 + mood.hueShift, 92, 220 * mood.brightness, alpha);
     strokeWeight(0.8);
     circle(src.x, src.y, ring);
   }
@@ -371,16 +459,16 @@ function drawOrbitMode(tNow, energy){
     const r = body.size * (1.15 + pulse * 0.22 + energy * 0.45);
 
     noFill();
-    stroke(body.hue, 115, 230, 26 + 28 * energy);
+    stroke(body.hue + mood.hueShift, 115, 230 * mood.brightness, 26 + 28 * energy);
     strokeWeight(0.75);
     circle(body.x, body.y, r * 6.2);
 
-    stroke(body.hue + 8, 90, 210, 12 + 18 * energy);
+    stroke(body.hue + mood.hueShift + 8, 90, 210 * mood.brightness, 12 + 18 * energy);
     strokeWeight(0.55);
     circle(body.x, body.y, r * 11.5);
 
     noStroke();
-    fill(body.hue, 90, 245, 62 + 45 * energy);
+    fill(body.hue + mood.hueShift, 90, 245 * mood.brightness, 62 + 45 * energy);
     circle(body.x, body.y, r * 1.75);
   }
 

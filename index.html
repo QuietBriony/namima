@@ -33,9 +33,16 @@
       z-index:5;
       user-select:none;
     }
-    #modeToggle{
+    #controlBar{
       position:fixed; right:10px; bottom:10px;
       z-index:6;
+      display:flex;
+      gap:6px;
+      align-items:center;
+      user-select:none;
+    }
+    #controlBar button,
+    #controlBar select{
       appearance:none;
       border:1px solid rgba(210,235,255,0.28);
       border-radius:999px;
@@ -45,10 +52,13 @@
       letter-spacing:0.04em;
       padding:7px 11px;
       cursor:pointer;
-      user-select:none;
       -webkit-tap-highlight-color: transparent;
     }
-    #modeToggle:active{
+    #controlBar select{
+      max-width:132px;
+    }
+    #controlBar button:active,
+    #controlBar select:active{
       background:rgba(34,72,94,0.58);
     }
   </style>
@@ -62,8 +72,18 @@
     </div>
   </div>
 
-  <div id="hint">Namima / touch: water ripple ambient</div>
-  <button id="modeToggle" type="button" aria-label="Switch visual mode">Water</button>
+  <div id="hint">Namima / Start Auto Mood Visual</div>
+  <div id="controlBar" aria-label="Namima controls">
+    <button id="autoToggle" type="button" aria-label="Toggle safe auto mood">Auto: Off</button>
+    <select id="moodSelect" aria-label="Select mood">
+      <option value="water_day">water_day</option>
+      <option value="garden_morning">garden_morning</option>
+      <option value="family_room">family_room</option>
+      <option value="soft_sleep">soft_sleep</option>
+      <option value="transparent_evening">transparent_evening</option>
+    </select>
+    <button id="modeToggle" type="button" aria-label="Switch visual mode">Visual: Water</button>
+  </div>
 
   <!-- p5.js -->
   <script src="https://cdn.jsdelivr.net/npm/p5@1.9.3/lib/p5.min.js"></script>

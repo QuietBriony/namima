@@ -7,6 +7,7 @@ window.AudioEngine = (() => {
   let lastTapTime = 0;
   let currentMood = "water_day";
   let autoOn = false;
+  let currentProfileShape = null;
 
   const scale = ["C", "D", "Eb", "G", "Ab"];
   const MOOD_AUDIO = Object.freeze({
@@ -33,7 +34,61 @@ window.AudioEngine = (() => {
   });
 
   function moodAudio(){
-    return MOOD_AUDIO[currentMood] ?? MOOD_AUDIO.water_day;
+    return currentProfileShape ?? MOOD_AUDIO[currentMood] ?? MOOD_AUDIO.water_day;
+  }
+
+  function clamp01(value){
+    return Math.max(0, Math.min(1, value));
+  }
+
+  function levelValue(value){
+    return {
+      none: 0,
+      minimal: 0.08,
+      very_low: 0.12,
+      low: 0.24,
+      low_medium: 0.34,
+      low_to_mid: 0.42,
+      medium_low: 0.44,
+      medium: 0.55,
+      medium_high: 0.72,
+      high: 0.86,
+      very_high: 1,
+      gentle: 0.36,
+      safe: 0.28,
+      soft_warm: 0.5,
+      cool: 0.45,
+    }[value] ?? 0.5;
+  }
+
+  function profileToShape(profile){
+    const bias = profile?.input_bias ?? {};
+    const brightness = levelValue(bias.brightness);
+    const water = levelValue(bias.water_motion);
+    const garden = levelValue(bias.garden_air);
+    const rhythm = levelValue(bias.rhythm_density);
+    const lowEnd = levelValue(bias.low_end_pressure);
+    const texture = levelValue(bias.texture_amount);
+    const melody = levelValue(bias.melody_presence);
+    const sleep = levelValue(bias.sleepiness);
+    const familySafe = bias.family_safe !== false;
+
+    const safetyTrim = familySafe ? 0.05 : 0;
+    const sleepTrim = sleep * 0.16;
+
+    return {
+      gain: clamp01(0.52 + brightness * 0.16 - lowEnd * 0.05 - sleepTrim - safetyTrim * 0.4),
+      filterBase: 360 + brightness * 430,
+      filterRange: 900 + brightness * 1650 + water * 420,
+      airBase: 220 + garden * 260 + brightness * 80,
+      reverbWet: Math.min(0.38, 0.16 + garden * 0.08 + sleep * 0.08),
+      shimmerWet: Math.min(0.18, 0.035 + water * 0.075 + texture * 0.035),
+      tapScale: clamp01(0.34 + water * 0.26 + rhythm * 0.12 + melody * 0.12 - sleep * 0.22),
+      tapMax: clamp01(0.30 + brightness * 0.18 + melody * 0.12 - sleep * 0.16),
+      airChance: clamp01(0.20 + garden * 0.28 + water * 0.12 + sleep * 0.08),
+      melodyChance: clamp01(0.08 + melody * 0.34 + water * 0.10 - sleep * 0.20),
+      padChance: clamp01(0.20 + garden * 0.20 + water * 0.12 - sleep * 0.08),
+    };
   }
 
   function noteFromX(xNorm){
@@ -103,9 +158,11 @@ window.AudioEngine = (() => {
     const n = noteFromX(xNorm);
     const vel = Math.min(shape.tapMax, (0.12 + intensity * 0.45) * shape.tapScale);
 
-    pluck.triggerAttackRelease(n, 0.22 + intensity * 0.22, now, vel * 0.85);
+    if(Math.random() < (shape.melodyChance ?? 0.32)){
+      pluck.triggerAttackRelease(n, 0.22 + intensity * 0.22, now, vel * 0.85);
+    }
 
-    if(dt > 0.18){
+    if(dt > 0.18 && Math.random() < (shape.padChance ?? 0.36)){
       const n2 = noteFromX((xNorm + 0.17) % 1);
       pad.triggerAttackRelease([n, n2], 1.4, now + 0.02, vel * 0.14);
     }
@@ -129,6 +186,14 @@ window.AudioEngine = (() => {
   function setMood(mood){
     if(!MOOD_AUDIO[mood]) return currentMood;
     currentMood = mood;
+    currentProfileShape = null;
+    applyMood(1.2);
+    return currentMood;
+  }
+
+  function setMoodProfile(profile){
+    if(!profile || profile.id !== currentMood) return currentMood;
+    currentProfileShape = profileToShape(profile);
     applyMood(1.2);
     return currentMood;
   }
@@ -156,6 +221,7 @@ window.AudioEngine = (() => {
     onTap,
     updateEnergy,
     setMood,
+    setMoodProfile,
     setAuto,
     get mood(){ return currentMood; },
     get auto(){ return autoOn; },

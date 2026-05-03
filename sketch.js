@@ -8,6 +8,7 @@ let activeMood = "water_day";
 let autoOn = false;
 let autoIndex = 0;
 let nextAutoAt = 0;
+let moodProfiles = {};
 
 const AUTO_ROUTE = ["water_day", "garden_morning", "family_room", "transparent_evening"];
 const MOOD_VISUAL = {
@@ -95,6 +96,7 @@ function setup(){
   }
 
   updateControlUi();
+  loadMoodProfiles();
 }
 
 async function startAudio(){
@@ -173,7 +175,24 @@ function updateControlUi(){
 function syncAudioMood(){
   if(!window.AudioEngine) return;
   if(window.AudioEngine.setMood) window.AudioEngine.setMood(activeMood);
+  if(window.AudioEngine.setMoodProfile) window.AudioEngine.setMoodProfile(moodProfiles[activeMood]);
   if(window.AudioEngine.setAuto) window.AudioEngine.setAuto(autoOn);
+}
+
+async function loadMoodProfiles(){
+  try {
+    const response = await fetch("./profiles/mood-profiles.json", { cache: "no-store" });
+    if(!response.ok) return;
+    const data = await response.json();
+    const profiles = Array.isArray(data?.profiles) ? data.profiles : [];
+    moodProfiles = {};
+    for(const profile of profiles){
+      if(profile?.id) moodProfiles[profile.id] = profile;
+    }
+    syncAudioMood();
+  } catch (_error) {
+    moodProfiles = {};
+  }
 }
 
 function scheduleNextAuto(nowMs){

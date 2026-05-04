@@ -2,7 +2,7 @@
 window.AudioEngine = (() => {
   let started = false;
 
-  let master, filter, airFilter, reverb, shimmer, limiter;
+  let master, filter, airFilter, tailFilter, tailDelay, tailGain, reverb, shimmer, limiter;
   let pad, air, pluck;
   let lastTapTime = 0;
   let currentMood = "water_day";
@@ -13,23 +13,28 @@ window.AudioEngine = (() => {
   const MOOD_AUDIO = Object.freeze({
     water_day: {
       gain: 0.72, filterBase: 620, filterRange: 2800, airBase: 320,
-      reverbWet: 0.18, shimmerWet: 0.08, tapScale: 0.86, tapMax: 0.62, airChance: 0.48
+      reverbWet: 0.18, shimmerWet: 0.08, tailWet: 0.07, tailGain: 0.1, tailCutoff: 1650,
+      tapScale: 0.86, tapMax: 0.62, airChance: 0.48
     },
     garden_morning: {
       gain: 0.70, filterBase: 540, filterRange: 2300, airBase: 280,
-      reverbWet: 0.22, shimmerWet: 0.06, tapScale: 0.78, tapMax: 0.56, airChance: 0.52
+      reverbWet: 0.22, shimmerWet: 0.06, tailWet: 0.08, tailGain: 0.11, tailCutoff: 1500,
+      tapScale: 0.78, tapMax: 0.56, airChance: 0.52
     },
     family_room: {
       gain: 0.64, filterBase: 500, filterRange: 1900, airBase: 340,
-      reverbWet: 0.18, shimmerWet: 0.04, tapScale: 0.64, tapMax: 0.46, airChance: 0.34
+      reverbWet: 0.18, shimmerWet: 0.04, tailWet: 0.045, tailGain: 0.075, tailCutoff: 1320,
+      tapScale: 0.64, tapMax: 0.46, airChance: 0.34
     },
     soft_sleep: {
       gain: 0.50, filterBase: 380, filterRange: 1100, airBase: 240,
-      reverbWet: 0.28, shimmerWet: 0.035, tapScale: 0.42, tapMax: 0.32, airChance: 0.22
+      reverbWet: 0.28, shimmerWet: 0.035, tailWet: 0.055, tailGain: 0.065, tailCutoff: 980,
+      tapScale: 0.42, tapMax: 0.32, airChance: 0.22
     },
     transparent_evening: {
       gain: 0.68, filterBase: 680, filterRange: 2500, airBase: 380,
-      reverbWet: 0.24, shimmerWet: 0.09, tapScale: 0.72, tapMax: 0.52, airChance: 0.42
+      reverbWet: 0.24, shimmerWet: 0.09, tailWet: 0.095, tailGain: 0.12, tailCutoff: 1780,
+      tapScale: 0.72, tapMax: 0.52, airChance: 0.42
     }
   });
 
@@ -83,6 +88,9 @@ window.AudioEngine = (() => {
       airBase: 220 + garden * 260 + brightness * 80,
       reverbWet: Math.min(0.38, 0.16 + garden * 0.08 + sleep * 0.08),
       shimmerWet: Math.min(0.18, 0.035 + water * 0.075 + texture * 0.035),
+      tailWet: Math.min(0.15, 0.035 + water * 0.055 + garden * 0.045 + sleep * 0.025),
+      tailGain: Math.min(0.14, 0.055 + garden * 0.04 + water * 0.04 - lowEnd * 0.02),
+      tailCutoff: 920 + brightness * 760 + water * 360 + garden * 180,
       tapScale: clamp01(0.34 + water * 0.26 + rhythm * 0.12 + melody * 0.12 - sleep * 0.22),
       tapMax: clamp01(0.30 + brightness * 0.18 + melody * 0.12 - sleep * 0.16),
       airChance: clamp01(0.20 + garden * 0.28 + water * 0.12 + sleep * 0.08),
@@ -108,6 +116,9 @@ window.AudioEngine = (() => {
     master  = new Tone.Gain(0.9);
     filter  = new Tone.Filter({ type:"lowpass", frequency: 900, Q: 0.6 });
     airFilter = new Tone.Filter({ type:"highpass", frequency: 360, Q: 0.5 });
+    tailFilter = new Tone.Filter({ type:"lowpass", frequency: 1450, Q: 0.45 });
+    tailDelay = new Tone.FeedbackDelay({ delayTime: "4n", feedback: 0.14, wet: 0.06 });
+    tailGain = new Tone.Gain(0.09);
     reverb  = new Tone.Reverb({ decay: 6.5, preDelay: 0.01, wet: 0.22 });
     shimmer = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.20, wet: 0.05 });
 
@@ -117,6 +128,11 @@ window.AudioEngine = (() => {
     // chain
     filter.connect(reverb);
     airFilter.connect(reverb);
+    filter.connect(tailFilter);
+    airFilter.connect(tailFilter);
+    tailFilter.connect(tailDelay);
+    tailDelay.connect(tailGain);
+    tailGain.connect(master);
     reverb.connect(shimmer);
     shimmer.connect(master);
     master.connect(limiter);
@@ -164,12 +180,12 @@ window.AudioEngine = (() => {
 
     if(dt > 0.18 && Math.random() < (shape.padChance ?? 0.36)){
       const n2 = noteFromX((xNorm + 0.17) % 1);
-      pad.triggerAttackRelease([n, n2], 1.4, now + 0.02, vel * 0.14);
+      pad.triggerAttackRelease([n, n2], 1.35 + (shape.tailWet ?? 0.06) * 3.4, now + 0.02, vel * 0.13);
     }
 
     if(Math.random() < shape.airChance){
       const n2 = noteFromX((xNorm + 0.2) % 1);
-      air.triggerAttackRelease([n, n2], 2.8, now + 0.02, vel * 0.16);
+      air.triggerAttackRelease([n, n2], 2.7 + (shape.tailWet ?? 0.06) * 5.2, now + 0.02, vel * 0.15);
     }
   }
 
@@ -178,8 +194,12 @@ window.AudioEngine = (() => {
     const shape = moodAudio();
     filter.frequency.rampTo(shape.filterBase + shape.filterRange * 0.18, ramp);
     airFilter.frequency.rampTo(shape.airBase, ramp);
+    tailFilter.frequency.rampTo(shape.tailCutoff ?? 1450, ramp);
     reverb.wet.rampTo(shape.reverbWet, ramp);
     shimmer.wet.rampTo(shape.shimmerWet, ramp);
+    tailDelay.wet.rampTo(shape.tailWet ?? 0.06, ramp);
+    tailDelay.feedback.value = Math.min(0.24, 0.11 + (shape.tailWet ?? 0.06) * 0.85);
+    tailGain.gain.rampTo(shape.tailGain ?? 0.09, ramp);
     master.gain.rampTo(shape.gain, ramp);
   }
 
@@ -211,9 +231,12 @@ window.AudioEngine = (() => {
 
     filter.frequency.rampTo(shape.filterBase + energy * shape.filterRange, 0.12);
     airFilter.frequency.rampTo(shape.airBase + energy * 420, 0.16);
+    tailFilter.frequency.rampTo((shape.tailCutoff ?? 1450) + energy * 360, 0.18);
     reverb.wet.rampTo(Math.min(0.42, shape.reverbWet + energy * 0.16 + autoLift), 0.18);
     shimmer.wet.rampTo(Math.min(0.22, shape.shimmerWet + energy * 0.11), 0.18);
-    master.gain.rampTo(Math.min(0.78, shape.gain + energy * 0.08), 0.18);
+    tailDelay.wet.rampTo(Math.min(0.17, (shape.tailWet ?? 0.06) + energy * 0.035), 0.18);
+    tailGain.gain.rampTo(Math.min(0.14, (shape.tailGain ?? 0.09) + energy * 0.025), 0.18);
+    master.gain.rampTo(Math.min(0.74, shape.gain + energy * 0.055), 0.18);
   }
 
   return {

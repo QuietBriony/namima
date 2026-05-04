@@ -50,5 +50,12 @@ Music session mood adapter: `music-session-adapter.js` exposes
 human-reviewed Music packet routing. It never stores audio, samples, lyrics, or
 raw interaction streams.
 
+Music SYNC:
+- Musicの `SYNC` はmetadata-onlyの現在状態共有です。
+- namimaは `routing.namima` をsafe moodへ翻訳します。
+- 音は `Tap to start` まで開始しません。
+- 録音、アップロード、サンプル、歌詞、raw trace保存はしません。
+- JSON貼り付けUIは、ローカル開発や別origin時のfallbackです。
+
 namima-lab harvest closure: [docs/namima-lab-harvest-closure.md](docs/namima-lab-harvest-closure.md)
 

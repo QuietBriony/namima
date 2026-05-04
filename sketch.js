@@ -217,6 +217,35 @@ function setAuto(enabled){
   updateControlUi();
 }
 
+function namimaSnapshot(){
+  return {
+    active_mood: activeMood,
+    auto_enabled: autoOn,
+    visual_mode: visualMode,
+    started,
+    mood_profiles_loaded: Object.keys(moodProfiles).length,
+    last_music_session: window.NamimaMusicSessionAdapter?.last ?? null
+  };
+}
+
+function applyMusicSessionPacket(packet, options={}){
+  const adapter = window.NamimaMusicSessionAdapter;
+  if(!adapter || typeof adapter.translateMusicSessionPacket !== "function") return null;
+  const translation = adapter.translateMusicSessionPacket(packet);
+  adapter.last = translation;
+  if(translation.enabled && options.previewOnly !== true){
+    setMood(translation.mood_id, { manual: true });
+    if(translation.visual_hint?.mode) setVisualMode(translation.visual_hint.mode);
+  }
+  return translation;
+}
+
+window.namimaAdapter = {
+  snapshot: namimaSnapshot,
+  applyMusicSessionPacket,
+  translateMusicSessionPacket: (packet) => window.NamimaMusicSessionAdapter?.translateMusicSessionPacket(packet) ?? null
+};
+
 function advanceAutoMood(nowMs){
   if(!autoOn) return;
   if(nextAutoAt <= 0) scheduleNextAuto(nowMs);

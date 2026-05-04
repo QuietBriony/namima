@@ -154,17 +154,22 @@
   </div>
 
   <section id="packetPanel" aria-label="Music SYNC mood receiver">
-    <h2>Music SYNCをnamimaの空気へ</h2>
-    <p>MusicでSYNCを押すと、namimaのsafe moodが自動で寄ります。音はTap to startまで始まりません。貼り付け欄はローカル開発用のfallbackです。</p>
-    <textarea id="packetInput" spellcheck="false" placeholder="{ &quot;source_repo&quot;: &quot;Music&quot;, ... }"></textarea>
+    <h2>SYNC後は、Tap to start。</h2>
+    <p>MusicでSYNCするとsafe moodが自動で寄ります。音を聴く時だけ画面をタップします。</p>
+    <p id="packetStatus">MusicでSYNCすると自動受信します。貼り付け欄はfallbackです。</p>
     <div class="packet-actions">
-      <button id="packetRead" type="button">読む</button>
-      <button id="packetApply" type="button">moodへ反映</button>
-      <button id="packetClear" type="button">消す</button>
       <button id="packetClose" type="button">閉じる</button>
     </div>
-    <p id="packetStatus">MusicでSYNCすると自動受信します。貼り付け欄はfallbackです。</p>
-    <pre id="packetOutput">まだ読んでいません。</pre>
+    <details>
+      <summary>JSON fallbackを開く</summary>
+      <textarea id="packetInput" spellcheck="false" placeholder="{ &quot;source_repo&quot;: &quot;Music&quot;, ... }"></textarea>
+      <div class="packet-actions">
+        <button id="packetRead" type="button">読む</button>
+        <button id="packetApply" type="button">moodへ反映</button>
+        <button id="packetClear" type="button">消す</button>
+      </div>
+      <pre id="packetOutput">まだ読んでいません。</pre>
+    </details>
   </section>
 
   <!-- p5.js -->

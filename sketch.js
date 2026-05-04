@@ -9,6 +9,7 @@ let autoOn = false;
 let autoIndex = 0;
 let nextAutoAt = 0;
 let moodProfiles = {};
+let musicPacketPanelReady = false;
 
 const AUTO_ROUTE = ["water_day", "garden_morning", "family_room", "transparent_evening"];
 const MOOD_VISUAL = {
@@ -95,6 +96,7 @@ function setup(){
     });
   }
 
+  setupMusicPacketPanel();
   updateControlUi();
   loadMoodProfiles();
 }
@@ -172,6 +174,113 @@ function updateControlUi(){
   if(moodSelect) moodSelect.value = activeMood;
 }
 
+function setPacketStatus(message, type){
+  const status = document.getElementById("packetStatus");
+  if(!status) return;
+  status.textContent = message;
+  status.classList.toggle("is-ok", type === "ok");
+  status.classList.toggle("is-error", type === "error");
+}
+
+function renderPacketTranslation(translation){
+  const output = document.getElementById("packetOutput");
+  if(!output) return;
+  output.textContent = JSON.stringify({
+    source_session_id: translation.source_session_id,
+    mood_id: translation.mood_id,
+    intent: translation.intent,
+    visual_hint: translation.visual_hint,
+    safety: translation.safety
+  }, null, 2);
+}
+
+function readMusicPacketFromPanel(){
+  const input = document.getElementById("packetInput");
+  const raw = input?.value.trim() || "";
+  if(!raw){
+    setPacketStatus("Music JSONを貼ってください。", "error");
+    return null;
+  }
+  try {
+    const packet = JSON.parse(raw);
+    const translation = applyMusicSessionPacket(packet, { previewOnly: true });
+    if(!translation) throw new Error("Music session adapter is not ready");
+    renderPacketTranslation(translation);
+    setPacketStatus(`OK: ${translation.source_session_id || "Music packet"} を ${translation.mood_id} へ翻訳しました。`, "ok");
+    return { packet, translation };
+  } catch (error) {
+    const output = document.getElementById("packetOutput");
+    if(output) output.textContent = "読めませんでした。JSON形式を確認してください。";
+    setPacketStatus(`JSONを読めません: ${error.message}`, "error");
+    return null;
+  }
+}
+
+function applyMusicPacketFromPanel(){
+  const read = readMusicPacketFromPanel();
+  if(!read?.packet) return;
+  const translation = applyMusicSessionPacket(read.packet, { previewOnly: false });
+  if(!translation) return;
+  renderPacketTranslation(translation);
+  setPacketStatus(`moodへ反映しました: ${translation.mood_id}。STARTは人間が押すまで音を開始しません。`, "ok");
+}
+
+function clearMusicPacketPanel(){
+  const input = document.getElementById("packetInput");
+  const output = document.getElementById("packetOutput");
+  if(input) input.value = "";
+  if(output) output.textContent = "まだ読んでいません。";
+  if(window.NamimaMusicSessionAdapter) window.NamimaMusicSessionAdapter.last = null;
+  setPacketStatus("Music JSONを貼ると、safe mood翻訳がここに出ます。");
+}
+
+function setupMusicPacketPanel(){
+  if(musicPacketPanelReady) return;
+  const panel = document.getElementById("packetPanel");
+  const toggle = document.getElementById("packetToggle");
+  const close = document.getElementById("packetClose");
+  const read = document.getElementById("packetRead");
+  const apply = document.getElementById("packetApply");
+  const clear = document.getElementById("packetClear");
+  if(!panel || !toggle) return;
+  musicPacketPanelReady = true;
+  let lastPointerAt = 0;
+  const guardedPointer = (callback) => (e) => {
+    lastPointerAt = Date.now();
+    e.preventDefault();
+    e.stopPropagation();
+    callback();
+  };
+  const guardedClick = (callback) => (e) => {
+    if(Date.now() - lastPointerAt < 360) return;
+    e.preventDefault();
+    e.stopPropagation();
+    callback();
+  };
+  if(toggle && panel){
+    const togglePanel = () => panel.classList.toggle("is-open");
+    toggle.addEventListener("pointerdown", guardedPointer(togglePanel), { passive:false });
+    toggle.addEventListener("click", guardedClick(togglePanel));
+  }
+  if(close && panel){
+    const closePanel = () => panel.classList.remove("is-open");
+    close.addEventListener("pointerdown", guardedPointer(closePanel), { passive:false });
+    close.addEventListener("click", guardedClick(closePanel));
+  }
+  if(read){
+    read.addEventListener("pointerdown", guardedPointer(readMusicPacketFromPanel), { passive:false });
+    read.addEventListener("click", guardedClick(readMusicPacketFromPanel));
+  }
+  if(apply){
+    apply.addEventListener("pointerdown", guardedPointer(applyMusicPacketFromPanel), { passive:false });
+    apply.addEventListener("click", guardedClick(applyMusicPacketFromPanel));
+  }
+  if(clear){
+    clear.addEventListener("pointerdown", guardedPointer(clearMusicPacketPanel), { passive:false });
+    clear.addEventListener("click", guardedClick(clearMusicPacketPanel));
+  }
+}
+
 function syncAudioMood(){
   if(!window.AudioEngine) return;
   if(window.AudioEngine.setMood) window.AudioEngine.setMood(activeMood);
@@ -245,6 +354,12 @@ window.namimaAdapter = {
   applyMusicSessionPacket,
   translateMusicSessionPacket: (packet) => window.NamimaMusicSessionAdapter?.translateMusicSessionPacket(packet) ?? null
 };
+
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", setupMusicPacketPanel, { once: true });
+} else {
+  setupMusicPacketPanel();
+}
 
 function advanceAutoMood(nowMs){
   if(!autoOn) return;

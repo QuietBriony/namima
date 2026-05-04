@@ -11,6 +11,9 @@ let nextAutoAt = 0;
 let moodProfiles = {};
 let musicPacketPanelReady = false;
 
+const MUSIC_STACK_PACKET_STORAGE_KEY = "qb:music-stack:latest-packet:v1";
+const MUSIC_STACK_CHANNEL_NAME = "qb:music-stack:v1";
+
 const AUTO_ROUTE = ["water_day", "garden_morning", "family_room", "transparent_evening"];
 const MOOD_VISUAL = {
   water_day: { hueShift: 0, brightness: 1.0, response: 1.0, trailDelta: 0 },
@@ -234,6 +237,64 @@ function clearMusicPacketPanel(){
   setPacketStatus("Music JSONを貼ると、safe mood翻訳がここに出ます。");
 }
 
+function musicPacketFromStackPayload(payload){
+  if(!payload || typeof payload !== "object") return null;
+  if(payload.packet && typeof payload.packet === "object" && payload.packet.source_repo === "Music") return payload.packet;
+  if(payload.source_repo === "Music") return payload;
+  return null;
+}
+
+function receiveMusicStackPacket(payload, source="sync"){
+  const packet = musicPacketFromStackPayload(payload);
+  if(!packet) return false;
+  const input = document.getElementById("packetInput");
+  const toggle = document.getElementById("packetToggle");
+  try {
+    const translation = applyMusicSessionPacket(packet, { previewOnly: false });
+    if(!translation) throw new Error("Music session adapter is not ready");
+    if(input) input.value = JSON.stringify(packet, null, 2);
+    renderPacketTranslation(translation);
+    setPacketStatus(`SYNC受信: ${translation.source_session_id || source} を ${translation.mood_id} へ反映しました。STARTは人間が押すまで音を開始しません。`, "ok");
+    if(toggle) toggle.textContent = "Music JSON: synced";
+    return true;
+  } catch (error) {
+    setPacketStatus(`SYNC packetを読めません: ${error.message}`, "error");
+    return false;
+  }
+}
+
+function readLatestMusicStackPacket(){
+  try {
+    const raw = window.localStorage?.getItem(MUSIC_STACK_PACKET_STORAGE_KEY);
+    if(!raw) return false;
+    return receiveMusicStackPacket(JSON.parse(raw), "latest");
+  } catch (error) {
+    setPacketStatus(`latest SYNCを読めません: ${error.message}`, "error");
+    return false;
+  }
+}
+
+function setupMusicStackSyncReceiver(){
+  if(typeof window === "undefined") return;
+  try {
+    if(typeof window.BroadcastChannel === "function"){
+      const channel = new window.BroadcastChannel(MUSIC_STACK_CHANNEL_NAME);
+      channel.addEventListener("message", (event) => receiveMusicStackPacket(event.data, "broadcast"));
+    }
+  } catch (error) {
+    console.warn("[namima] Music stack BroadcastChannel unavailable:", error);
+  }
+  window.addEventListener("storage", (event) => {
+    if(event.key !== MUSIC_STACK_PACKET_STORAGE_KEY || !event.newValue) return;
+    try {
+      receiveMusicStackPacket(JSON.parse(event.newValue), "storage");
+    } catch (error) {
+      setPacketStatus(`storage SYNCを読めません: ${error.message}`, "error");
+    }
+  });
+  readLatestMusicStackPacket();
+}
+
 function setupMusicPacketPanel(){
   if(musicPacketPanelReady) return;
   const panel = document.getElementById("packetPanel");
@@ -356,9 +417,13 @@ window.namimaAdapter = {
 };
 
 if(document.readyState === "loading"){
-  document.addEventListener("DOMContentLoaded", setupMusicPacketPanel, { once: true });
+  document.addEventListener("DOMContentLoaded", () => {
+    setupMusicPacketPanel();
+    setupMusicStackSyncReceiver();
+  }, { once: true });
 } else {
   setupMusicPacketPanel();
+  setupMusicStackSyncReceiver();
 }
 
 function advanceAutoMood(nowMs){

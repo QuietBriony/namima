@@ -35,7 +35,7 @@
     }
     #controlBar{
       position:fixed; right:10px; bottom:10px;
-      z-index:6;
+      z-index:12;
       display:flex;
       gap:6px;
       align-items:center;
@@ -61,6 +61,73 @@
     #controlBar select:active{
       background:rgba(34,72,94,0.58);
     }
+    #packetPanel{
+      position:fixed; left:10px; top:10px;
+      z-index:13;
+      width:min(420px, calc(100vw - 20px));
+      max-height:calc(100vh - 20px);
+      overflow:auto;
+      display:none;
+      gap:8px;
+      padding:12px;
+      border:1px solid rgba(210,235,255,0.24);
+      border-radius:12px;
+      background:rgba(8,14,20,0.78);
+      color:rgba(232,246,255,0.86);
+      font: 12px/1.4 system-ui, -apple-system, Segoe UI, sans-serif;
+      backdrop-filter: blur(10px);
+    }
+    #packetPanel.is-open{ display:grid; }
+    #packetPanel h2{
+      margin:0;
+      font-size:14px;
+      letter-spacing:0.04em;
+    }
+    #packetPanel p{ margin:0; color:rgba(232,246,255,0.66); }
+    #packetPanel textarea,
+    #packetPanel pre{
+      width:100%;
+      min-height:112px;
+      margin:0;
+      border:1px solid rgba(210,235,255,0.2);
+      border-radius:8px;
+      background:rgba(2,6,10,0.62);
+      color:rgba(232,246,255,0.9);
+      padding:8px;
+      font: 11px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+      white-space:pre-wrap;
+      overflow:auto;
+    }
+    #packetPanel textarea{ resize:vertical; }
+    .packet-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+    .packet-actions button{
+      min-height:34px;
+      border:1px solid rgba(210,235,255,0.26);
+      border-radius:999px;
+      background:rgba(20,38,48,0.64);
+      color:rgba(232,246,255,0.9);
+      cursor:pointer;
+      padding:0 10px;
+      font:inherit;
+    }
+    #packetStatus.is-ok{ color:rgba(184,238,205,0.9); }
+    #packetStatus.is-error{ color:rgba(255,198,188,0.92); }
+    @media (max-width: 680px){
+      #packetPanel{
+        left:8px; right:8px; top:8px;
+        width:auto;
+      }
+      #controlBar{
+        left:10px;
+        right:10px;
+        justify-content:flex-end;
+        flex-wrap:wrap;
+      }
+    }
   </style>
 </head>
 <body>
@@ -74,6 +141,7 @@
 
   <div id="hint">Namima / Start Auto Mood Visual</div>
   <div id="controlBar" aria-label="Namima controls">
+    <button id="packetToggle" type="button" aria-label="Open Music JSON panel">Music JSON</button>
     <button id="autoToggle" type="button" aria-label="Toggle safe auto mood">Auto: Off</button>
     <select id="moodSelect" aria-label="Select mood">
       <option value="water_day">water_day</option>
@@ -85,13 +153,27 @@
     <button id="modeToggle" type="button" aria-label="Switch visual mode">Visual: Water</button>
   </div>
 
+  <section id="packetPanel" aria-label="Music JSON mood receiver">
+    <h2>Music JSONをnamimaの空気へ</h2>
+    <p>Music / OpenClaw のmetadata-only JSONを貼ると、namima用のsafe moodへ翻訳します。音声保存、録音、アップロードはしません。</p>
+    <textarea id="packetInput" spellcheck="false" placeholder="{ &quot;source_repo&quot;: &quot;Music&quot;, ... }"></textarea>
+    <div class="packet-actions">
+      <button id="packetRead" type="button">読む</button>
+      <button id="packetApply" type="button">moodへ反映</button>
+      <button id="packetClear" type="button">消す</button>
+      <button id="packetClose" type="button">閉じる</button>
+    </div>
+    <p id="packetStatus">Music JSONを貼ると、safe mood翻訳がここに出ます。</p>
+    <pre id="packetOutput">まだ読んでいません。</pre>
+  </section>
+
   <!-- p5.js -->
   <script src="https://cdn.jsdelivr.net/npm/p5@1.9.3/lib/p5.min.js"></script>
   <!-- Tone.js -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 
   <script src="./audio.js"></script>
-  <script src="./music-session-adapter.js"></script>
-  <script src="./sketch.js"></script>
+  <script src="./music-session-adapter.js?v=music-packet-mood-ui-2"></script>
+  <script src="./sketch.js?v=music-packet-mood-ui-2"></script>
 </body>
 </html>

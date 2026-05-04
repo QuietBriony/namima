@@ -175,6 +175,9 @@ function updateControlUi(){
 
   const moodSelect = document.getElementById("moodSelect");
   if(moodSelect) moodSelect.value = activeMood;
+
+  const moodBadge = document.getElementById("moodBadge");
+  if(moodBadge) moodBadge.textContent = `mood: ${activeMood}`;
 }
 
 function setPacketStatus(message, type){
@@ -256,6 +259,8 @@ function receiveMusicStackPacket(payload, source="sync"){
     renderPacketTranslation(translation);
     setPacketStatus(`SYNC受信: ${translation.source_session_id || source} を ${translation.mood_id} へ反映しました。Tap to startまで音は始まりません。`, "ok");
     if(toggle) toggle.textContent = "Music SYNC: synced";
+    const moodBadge = document.getElementById("moodBadge");
+    if(moodBadge) moodBadge.textContent = `Music: ${translation.mood_id}`;
     return true;
   } catch (error) {
     setPacketStatus(`SYNC packetを読めません: ${error.message}`, "error");

@@ -201,7 +201,7 @@ function readMusicPacketFromPanel(){
   const input = document.getElementById("packetInput");
   const raw = input?.value.trim() || "";
   if(!raw){
-    setPacketStatus("Music JSONを貼ってください。", "error");
+    setPacketStatus("SYNCが届かない時だけMusic JSONを貼ってください。", "error");
     return null;
   }
   try {
@@ -234,7 +234,7 @@ function clearMusicPacketPanel(){
   if(input) input.value = "";
   if(output) output.textContent = "まだ読んでいません。";
   if(window.NamimaMusicSessionAdapter) window.NamimaMusicSessionAdapter.last = null;
-  setPacketStatus("Music JSONを貼ると、safe mood翻訳がここに出ます。");
+  setPacketStatus("MusicでSYNCすると自動受信します。貼り付け欄はfallbackです。");
 }
 
 function musicPacketFromStackPayload(payload){
@@ -254,8 +254,8 @@ function receiveMusicStackPacket(payload, source="sync"){
     if(!translation) throw new Error("Music session adapter is not ready");
     if(input) input.value = JSON.stringify(packet, null, 2);
     renderPacketTranslation(translation);
-    setPacketStatus(`SYNC受信: ${translation.source_session_id || source} を ${translation.mood_id} へ反映しました。STARTは人間が押すまで音を開始しません。`, "ok");
-    if(toggle) toggle.textContent = "Music JSON: synced";
+    setPacketStatus(`SYNC受信: ${translation.source_session_id || source} を ${translation.mood_id} へ反映しました。Tap to startまで音は始まりません。`, "ok");
+    if(toggle) toggle.textContent = "Music SYNC: synced";
     return true;
   } catch (error) {
     setPacketStatus(`SYNC packetを読めません: ${error.message}`, "error");

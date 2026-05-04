@@ -44,5 +44,11 @@ Input/output examples: [docs/input-output-example.md](docs/input-output-example.
 
 Ambient interaction contract: [docs/ambient-interaction-contract.md](docs/ambient-interaction-contract.md)
 
+Music session mood adapter: `music-session-adapter.js` exposes
+`window.NamimaMusicSessionAdapter.translateMusicSessionPacket(packet)` and
+`window.namimaAdapter.applyMusicSessionPacket(packet)` for metadata-only,
+human-reviewed Music packet routing. It never stores audio, samples, lyrics, or
+raw interaction streams.
+
 namima-lab harvest closure: [docs/namima-lab-harvest-closure.md](docs/namima-lab-harvest-closure.md)
 

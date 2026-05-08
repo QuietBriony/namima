@@ -53,6 +53,7 @@ raw interaction streams.
 Music SYNC:
 - Musicの `SYNC` はmetadata-onlyの現在状態共有です。
 - namimaは `routing.namima` をsafe moodへ翻訳します。
+- `performance_state.mic_follow` がある場合は、息/ハミングを水と空気、手拍子/パルスを水面反応のヒントとして扱います。マイク音声は録音/保存/送信しません。
 - 音は `Tap to start` まで開始しません。
 - 録音、アップロード、サンプル、歌詞、raw trace保存はしません。
 - JSON貼り付けUIは、ローカル開発や別origin時のfallbackです。

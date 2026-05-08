@@ -228,7 +228,7 @@ function applyMusicPacketFromPanel(){
   const translation = applyMusicSessionPacket(read.packet, { previewOnly: false });
   if(!translation) return;
   renderPacketTranslation(translation);
-  setPacketStatus(`moodへ反映しました: ${translation.mood_id}。STARTは人間が押すまで音を開始しません。`, "ok");
+  setPacketStatus(`moodへ反映しました: ${translation.mood_id}${musicMicHint(translation)}。STARTは人間が押すまで音を開始しません。`, "ok");
 }
 
 function clearMusicPacketPanel(){
@@ -247,6 +247,13 @@ function musicPacketFromStackPayload(payload){
   return null;
 }
 
+function musicMicHint(translation){
+  const mic = translation?.intent?.mic_follow;
+  if(!mic || !mic.enabled) return "";
+  const drive = Math.round(Number(mic.drive || 0) * 100);
+  return ` / MIC ${String(mic.gesture || "mic").toUpperCase()}${drive ? ` ${drive}%` : ""}`;
+}
+
 function receiveMusicStackPacket(payload, source="sync"){
   const packet = musicPacketFromStackPayload(payload);
   if(!packet) return false;
@@ -257,7 +264,7 @@ function receiveMusicStackPacket(payload, source="sync"){
     if(!translation) throw new Error("Music session adapter is not ready");
     if(input) input.value = JSON.stringify(packet, null, 2);
     renderPacketTranslation(translation);
-    setPacketStatus(`SYNC受信: ${translation.source_session_id || source} を ${translation.mood_id} へ反映しました。Tap to startまで音は始まりません。`, "ok");
+    setPacketStatus(`SYNC受信: ${translation.source_session_id || source} を ${translation.mood_id}${musicMicHint(translation)} へ反映しました。Tap to startまで音は始まりません。`, "ok");
     if(toggle) toggle.textContent = "Music SYNC: synced";
     const moodBadge = document.getElementById("moodBadge");
     if(moodBadge) moodBadge.textContent = `Music: ${translation.mood_id}`;

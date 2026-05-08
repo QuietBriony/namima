@@ -22,7 +22,24 @@ window.NamimaMusicSessionAdapter = (() => {
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
 
-  function chooseMood(packet, namima, gradient){
+  function micFollow(packet){
+    const mic = object(object(packet?.performance_state).mic_follow);
+    const confidence = unit(mic.confidence);
+    return {
+      enabled: mic.enabled === true && confidence > 0.08,
+      gesture: String(mic.gesture || "silent").toLowerCase(),
+      drive: unit(mic.drive),
+      pulse: unit(mic.pulse),
+      clap: unit(mic.clap),
+      hum: unit(mic.hum),
+      air: unit(mic.air),
+      noisy: unit(mic.noisy),
+      bpm_lock: clamp(Number(mic.bpm_lock) || 0, 0, 240),
+      confidence
+    };
+  }
+
+  function chooseMood(packet, namima, gradient, mic){
     const moodIntent = object(namima.mood_intent);
     const mood = String(moodIntent.mood || namima.mood_intent || "").toLowerCase();
     const ucm = object(packet?.ucm_state);
@@ -33,6 +50,12 @@ window.NamimaMusicSessionAdapter = (() => {
     const calm = circle * 0.3 + observer * 0.28 + voidness * 0.2 + unit(gradient.haze) * 0.22;
 
     if(namima.family_safe === false) return "family_room";
+    if(mic?.enabled && mic.confidence > 0.16){
+      if(mic.gesture === "breath" || mic.gesture === "hum" || mic.air > 0.32) return "garden_morning";
+      if(mic.gesture === "silent" && mic.air > 0.42) return "soft_sleep";
+      if(mic.gesture === "clap" || mic.gesture === "pulse") return "water_day";
+      if(mic.gesture === "noisy") return "family_room";
+    }
     if(mood.includes("transparent") || voidness > 0.58) return energy < 0.28 ? "soft_sleep" : "transparent_evening";
     if(mood.includes("garden") || calm > 0.62) return "garden_morning";
     if(mood.includes("family") || energy > 0.52) return "family_room";
@@ -45,9 +68,12 @@ window.NamimaMusicSessionAdapter = (() => {
     const namima = object(routing.namima);
     const gradient = object(packet?.reference_gradient?.weights);
     const ucm = object(packet?.ucm_state);
-    const moodId = chooseMood(packet, namima, gradient);
+    const mic = micFollow(packet);
+    const micWater = mic.enabled ? Math.max(mic.pulse, mic.clap, mic.drive * 0.48) * mic.confidence : 0;
+    const micAir = mic.enabled ? Math.max(mic.air, mic.hum * 0.72) * mic.confidence : 0;
+    const moodId = chooseMood(packet, namima, gradient, mic);
     const brightness = unit(namima.brightness, unit(gradient.chrome, 0.42));
-    const waterMotion = unit(namima.water_motion, percent(ucm.wave, 35) / 100);
+    const waterMotion = unit(namima.water_motion, clamp(percent(ucm.wave, 35) / 100 + micWater * 0.16 + micAir * 0.08, 0, 1));
     const calmContinuity = unit((percent(ucm.circle, 0) + percent(ucm.observer, 0)) / 200, 0.45);
     const energy = percent(ucm.energy, 0) / 100;
     const safeEnergyCap = unit(object(namima.mood_intent).safe_energy_cap, 0.54);
@@ -62,10 +88,17 @@ window.NamimaMusicSessionAdapter = (() => {
       intent: {
         family_safe: namima.family_safe !== false,
         water_motion: Number(waterMotion.toFixed(3)),
-        brightness: Number(Math.min(brightness, 0.78).toFixed(3)),
-        calm_continuity: Number(calmContinuity.toFixed(3)),
-        energy_cap: Number(Math.min(safeEnergyCap, 0.62).toFixed(3)),
-        foreground_energy: Number(Math.min(energy, 0.52).toFixed(3))
+        brightness: Number(Math.min(brightness + micAir * 0.06 - mic.noisy * 0.08, 0.78).toFixed(3)),
+        calm_continuity: Number(Math.min(calmContinuity + micAir * 0.08, 0.92).toFixed(3)),
+        energy_cap: Number(Math.min(safeEnergyCap - mic.noisy * 0.08, 0.62).toFixed(3)),
+        foreground_energy: Number(Math.min(energy + micWater * 0.06, 0.52).toFixed(3)),
+        mic_follow: {
+          enabled: mic.enabled,
+          gesture: mic.gesture,
+          drive: Number(mic.drive.toFixed(3)),
+          confidence: Number(mic.confidence.toFixed(3)),
+          bpm_lock: Math.round(mic.bpm_lock)
+        }
       },
       visual_hint: {
         mode: moodId === "transparent_evening" ? "orbit" : "water",

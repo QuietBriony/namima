@@ -112,6 +112,48 @@
         "sustain": 0.7,
         "release": 2.6
       }
+    },
+    {
+      "id": "midnight_silent",
+      "label": "Midnight Silent",
+      "master": 0.42,
+      "filter": {
+        "lowpass": { "freq": 360, "Q": 0.6 },
+        "highpass": { "freq": 200, "Q": 0.5 }
+      },
+      "reverb": { "decay": 7.5, "wet": 0.32 },
+      "shimmer": { "rateHz": 2.0, "wet": 0.04, "feedback": 0.20 },
+      "tail": { "delayMs": 125, "wet": 0.06, "feedback": 0.14 },
+      "air": { "gain": 0.18, "noiseType": "sine" },
+      "pad": {
+        "gain": 0.4,
+        "baseNote": "F2",
+        "attack": 0.8,
+        "decay": 0.2,
+        "sustain": 0.7,
+        "release": 3.2
+      }
+    },
+    {
+      "id": "morning_chime",
+      "label": "Morning Chime",
+      "master": 0.66,
+      "filter": {
+        "lowpass": { "freq": 820, "Q": 0.5 },
+        "highpass": { "freq": 420, "Q": 0.5 }
+      },
+      "reverb": { "decay": 6.5, "wet": 0.20 },
+      "shimmer": { "rateHz": 2.0, "wet": 0.12, "feedback": 0.22 },
+      "tail": { "delayMs": 125, "wet": 0.10, "feedback": 0.14 },
+      "air": { "gain": 0.42, "noiseType": "sine" },
+      "pad": {
+        "gain": 0.62,
+        "baseNote": "G3",
+        "attack": 0.5,
+        "decay": 0.2,
+        "sustain": 0.7,
+        "release": 2.4
+      }
     }
   ]
 }

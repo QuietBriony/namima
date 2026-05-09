@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "format": "namima-ambient-tone-js",
+  "policy": {
+    "stores_audio": false,
+    "stores_samples": false,
+    "stores_metadata_only": true,
+    "purpose": "public-friendly ambient preset"
+  },
+  "presets": [
+    {
+      "id": "water_day",
+      "label": "Water Day",
+      "master": 0.72,
+      "filter": {
+        "lowpass": { "freq": 620, "Q": 0.6 },
+        "highpass": { "freq": 320, "Q": 0.5 }
+      },
+      "reverb": { "decay": 6.5, "wet": 0.18 },
+      "shimmer": { "rateHz": 2.0, "wet": 0.08, "feedback": 0.20 },
+      "tail": { "delayMs": 125, "wet": 0.07, "feedback": 0.14 },
+      "air": { "gain": 0.48, "noiseType": "sine" },
+      "pad": {
+        "gain": 0.648,
+        "baseNote": "C3",
+        "attack": 0.6,
+        "decay": 0.2,
+        "sustain": 0.7,
+        "release": 2.6
+      }
+    },
+    {
+      "id": "garden_morning",
+      "label": "Garden Morning",
+      "master": 0.70,
+      "filter": {
+        "lowpass": { "freq": 540, "Q": 0.6 },
+        "highpass": { "freq": 280, "Q": 0.5 }
+      },
+      "reverb": { "decay": 6.5, "wet": 0.22 },
+      "shimmer": { "rateHz": 2.0, "wet": 0.06, "feedback": 0.20 },
+      "tail": { "delayMs": 125, "wet": 0.08, "feedback": 0.14 },
+      "air": { "gain": 0.52, "noiseType": "sine" },
+      "pad": {
+        "gain": 0.63,
+        "baseNote": "D3",
+        "attack": 0.6,
+        "decay": 0.2,
+        "sustain": 0.7,
+        "release": 2.6
+      }
+    },
+    {
+      "id": "family_room",
+      "label": "Family Room",
+      "master": 0.64,
+      "filter": {
+        "lowpass": { "freq": 500, "Q": 0.6 },
+        "highpass": { "freq": 340, "Q": 0.5 }
+      },
+      "reverb": { "decay": 6.5, "wet": 0.18 },
+      "shimmer": { "rateHz": 2.0, "wet": 0.04, "feedback": 0.20 },
+      "tail": { "delayMs": 125, "wet": 0.045, "feedback": 0.14 },
+      "air": { "gain": 0.34, "noiseType": "sine" },
+      "pad": {
+        "gain": 0.576,
+        "baseNote": "F3",
+        "attack": 0.6,
+        "decay": 0.2,
+        "sustain": 0.7,
+        "release": 2.6
+      }
+    },
+    {
+      "id": "soft_sleep",
+      "label": "Soft Sleep",
+      "master": 0.50,
+      "filter": {
+        "lowpass": { "freq": 380, "Q": 0.6 },
+        "highpass": { "freq": 240, "Q": 0.5 }
+      },
+      "reverb": { "decay": 6.5, "wet": 0.28 },
+      "shimmer": { "rateHz": 2.0, "wet": 0.035, "feedback": 0.20 },
+      "tail": { "delayMs": 125, "wet": 0.055, "feedback": 0.14 },
+      "air": { "gain": 0.22, "noiseType": "sine" },
+      "pad": {
+        "gain": 0.45,
+        "baseNote": "G3",
+        "attack": 0.6,
+        "decay": 0.2,
+        "sustain": 0.7,
+        "release": 2.6
+      }
+    },
+    {
+      "id": "transparent_evening",
+      "label": "Transparent Evening",
+      "master": 0.68,
+      "filter": {
+        "lowpass": { "freq": 680, "Q": 0.6 },
+        "highpass": { "freq": 380, "Q": 0.5 }
+      },
+      "reverb": { "decay": 6.5, "wet": 0.24 },
+      "shimmer": { "rateHz": 2.0, "wet": 0.09, "feedback": 0.20 },
+      "tail": { "delayMs": 125, "wet": 0.095, "feedback": 0.14 },
+      "air": { "gain": 0.42, "noiseType": "sine" },
+      "pad": {
+        "gain": 0.612,
+        "baseNote": "C3",
+        "attack": 0.6,
+        "decay": 0.2,
+        "sustain": 0.7,
+        "release": 2.6
+      }
+    }
+  ]
+}

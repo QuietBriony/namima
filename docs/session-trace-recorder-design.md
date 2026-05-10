@@ -65,6 +65,30 @@ namima:session-trace:v1
 The value should be a small list of recent trace summaries. The runtime should
 cap list size and fail silently if storage is unavailable.
 
+## Current runtime micro-pilot
+
+The current app includes a small opt-in `TRACE` control in the advanced control
+area.
+
+It saves only a coarse local summary under:
+
+```text
+namima:session-trace:v1
+```
+
+Current stored summary fields are limited to:
+
+- mood / visual / Auto state
+- coarse duration band
+- coarse touch energy, x-position, and gesture-rate bands
+- recent mood / visual / Auto changes
+- latest safe ripple concept summary
+- explicit safety flags showing that audio, samples, and raw pointer paths are
+  not stored
+
+The trace button does not export, upload, tune, or change sound directly. It is
+only a local aid for later human listening review.
+
 ## Review flow
 
 1. Start namima.

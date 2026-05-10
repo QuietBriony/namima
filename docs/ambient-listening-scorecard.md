@@ -65,14 +65,20 @@ A change should be revised or split if:
 
 1. Make a small PR.
 2. Listen on local or Pages.
-3. Fill this scorecard manually.
-4. Convert notes into the next small PR.
-5. Do not auto-promote listening notes into runtime changes.
+3. Optionally save a local `TRACE` summary for coarse session context.
+4. Fill this scorecard manually.
+5. Use the trace only as context for the human notes.
+6. Convert notes into the next small PR.
+7. Do not auto-promote listening notes into runtime changes.
 
 ## Storage boundary
 
 Future recorder work may store scorecard metadata locally, but it must not store
 or upload audio by default.
+
+The current runtime trace micro-pilot stores only coarse local summary metadata
+under `namima:session-trace:v1`; it does not store score values, audio, samples,
+or raw pointer paths.
 
 Allowed future data:
 

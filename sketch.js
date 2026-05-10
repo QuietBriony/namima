@@ -12,9 +12,14 @@ let moodProfiles = {};
 let musicPacketPanelReady = false;
 let latestAmbientConcept = null;
 let lastGestureAt = 0;
+let traceSession = null;
+let lastTraceSummary = null;
+let traceSaveLabelResetAt = 0;
 
 const MUSIC_STACK_PACKET_STORAGE_KEY = "qb:music-stack:latest-packet:v1";
 const MUSIC_STACK_CHANNEL_NAME = "qb:music-stack:v1";
+const TRACE_STORAGE_KEY = "namima:session-trace:v1";
+const TRACE_LIMIT = 8;
 
 const AUTO_ROUTE = ["water_day", "garden_morning", "family_room", "transparent_evening"];
 const MOOD_VISUAL = {
@@ -132,6 +137,204 @@ function safeRippleConcept(input={}){
   };
 }
 
+function nowIsoMinute(){
+  const date = new Date();
+  date.setSeconds(0, 0);
+  return date.toISOString();
+}
+
+function makeTraceSession(){
+  return {
+    session_id: `namima-${Date.now().toString(36)}-${Math.floor(Math.random() * 46656).toString(36).padStart(3, "0")}`,
+    started_at: nowIsoMinute(),
+    started_ms: Date.now(),
+    mood_start: activeMood,
+    visual_start: visualMode,
+    auto_start: autoOn,
+    touch_count: 0,
+    touch_energy_bands: { low: 0, medium: 0, high: 0 },
+    x_position_bands: { left_warm: 0, center_stable: 0, right_bright: 0 },
+    gesture_rate_bands: { still: 0, slow: 0, active: 0, too_fast_clamped: 0 },
+    mood_changes: [],
+    visual_changes: [],
+    auto_changes: [],
+  };
+}
+
+function ensureTraceSession(){
+  if(!traceSession) traceSession = makeTraceSession();
+  return traceSession;
+}
+
+function touchEnergyBand(value){
+  if(value < 0.28) return "low";
+  if(value < 0.62) return "medium";
+  return "high";
+}
+
+function xPositionBand(value){
+  if(value < 0.33) return "left_warm";
+  if(value > 0.66) return "right_bright";
+  return "center_stable";
+}
+
+function gestureRateBand(value){
+  if(value < 0.08) return "still";
+  if(value < 0.32) return "slow";
+  if(value < 0.66) return "active";
+  return "too_fast_clamped";
+}
+
+function durationBand(ms){
+  if(ms < 180000) return "short";
+  if(ms < 1200000) return "medium";
+  return "long";
+}
+
+function pushLimitedUnique(list, value, limit=8){
+  if(!list.length || list[list.length - 1] !== value) list.push(value);
+  while(list.length > limit) list.shift();
+}
+
+function trackMoodChange(mood){
+  const session = ensureTraceSession();
+  pushLimitedUnique(session.mood_changes, mood);
+}
+
+function trackVisualChange(mode){
+  const session = ensureTraceSession();
+  pushLimitedUnique(session.visual_changes, mode);
+}
+
+function trackAutoChange(enabled){
+  const session = ensureTraceSession();
+  pushLimitedUnique(session.auto_changes, enabled ? "auto_on" : "auto_off");
+}
+
+function trackTraceTouch(concept){
+  const session = ensureTraceSession();
+  const energyBand = touchEnergyBand(concept.safe_energy);
+  const positionBand = xPositionBand(concept.x_position);
+  const rateBand = gestureRateBand(concept.gesture_rate);
+  session.touch_count += 1;
+  session.touch_energy_bands[energyBand] += 1;
+  session.x_position_bands[positionBand] += 1;
+  session.gesture_rate_bands[rateBand] += 1;
+}
+
+function readLocalTraceSummaries(){
+  try {
+    const raw = window.localStorage?.getItem(TRACE_STORAGE_KEY);
+    const value = raw ? JSON.parse(raw) : [];
+    return Array.isArray(value) ? value : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function writeLocalTraceSummaries(summaries){
+  try {
+    window.localStorage?.setItem(TRACE_STORAGE_KEY, JSON.stringify(summaries.slice(0, TRACE_LIMIT)));
+  } catch (_error) {
+    // localStorage may be unavailable in private browsing; trace recording is optional.
+  }
+}
+
+function currentTraceSummary(captureReason="snapshot"){
+  const session = ensureTraceSession();
+  const durationMs = Math.max(0, Date.now() - (session.started_ms ?? Date.parse(session.started_at)));
+  const concept = latestAmbientConcept ? {
+    mood_id: latestAmbientConcept.mood_id,
+    safe_energy: latestAmbientConcept.safe_energy,
+    water_shimmer: latestAmbientConcept.water_shimmer,
+    air_lift: latestAmbientConcept.air_lift,
+    soft_pulse_visibility: latestAmbientConcept.soft_pulse_visibility,
+    melody_fragment_probability: latestAmbientConcept.melody_fragment_probability,
+    fade_back_time: latestAmbientConcept.fade_back_time,
+  } : null;
+
+  return {
+    schema: "namima.session-trace-summary.v1",
+    session_id: session.session_id,
+    started_at: session.started_at,
+    captured_at: nowIsoMinute(),
+    capture_reason: captureReason,
+    duration_band: durationBand(durationMs),
+    active_mood: activeMood,
+    visual_mode: visualMode,
+    auto_enabled: autoOn,
+    mood_start: session.mood_start,
+    visual_start: session.visual_start,
+    auto_start: session.auto_start,
+    touch_count: session.touch_count,
+    touch_energy_bands: { ...session.touch_energy_bands },
+    x_position_bands: { ...session.x_position_bands },
+    gesture_rate_bands: { ...session.gesture_rate_bands },
+    mood_changes: [...session.mood_changes],
+    visual_changes: [...session.visual_changes],
+    auto_changes: [...session.auto_changes],
+    latest_ambient_concept: concept,
+    safety: {
+      local_only: true,
+      stores_audio: false,
+      stores_samples: false,
+      stores_raw_pointer_paths: false,
+      uploads_by_default: false,
+    },
+  };
+}
+
+function saveLocalTraceSummary(reason="manual"){
+  const summary = currentTraceSummary(reason);
+  const summaries = readLocalTraceSummaries()
+    .filter((entry) => entry?.session_id !== summary.session_id);
+  writeLocalTraceSummaries([summary, ...summaries]);
+  lastTraceSummary = summary;
+  updateTraceSaveUi(true);
+  return summary;
+}
+
+function updateTraceSaveUi(saved=false){
+  const traceSave = document.getElementById("traceSave");
+  if(!traceSave) return;
+  if(saved){
+    traceSave.textContent = "SAVED";
+    traceSave.setAttribute("aria-label", "Local trace summary saved");
+    traceSaveLabelResetAt = Date.now() + 2200;
+    return;
+  }
+  if(traceSaveLabelResetAt > 0 && Date.now() > traceSaveLabelResetAt){
+    traceSave.textContent = "TRACE";
+    traceSave.setAttribute("aria-label", "Save local trace summary");
+    traceSaveLabelResetAt = 0;
+  }
+}
+
+function setupTraceRecorder(){
+  ensureTraceSession();
+  const traceSave = document.getElementById("traceSave");
+  if(!traceSave) return;
+
+  let lastPointerAt = 0;
+  const save = () => saveLocalTraceSummary("manual");
+  traceSave.addEventListener("pointerdown", (e) => {
+    lastPointerAt = Date.now();
+    e.preventDefault();
+    e.stopPropagation();
+    save();
+  }, { passive:false });
+  traceSave.addEventListener("click", (e) => {
+    if(Date.now() - lastPointerAt < 360) return;
+    e.preventDefault();
+    e.stopPropagation();
+    save();
+  });
+}
+
+function isUiControlTarget(target){
+  return Boolean(target?.closest?.("#controlBar, #packetPanel, #startOverlay"));
+}
+
 function setup(){
   createCanvas(windowWidth, windowHeight);
   pixelDensity(1);
@@ -183,6 +386,7 @@ function setup(){
   }
 
   setupMusicPacketPanel();
+  setupTraceRecorder();
   updateControlUi();
   loadMoodProfiles();
 }
@@ -237,6 +441,7 @@ function initOrbitBodies(){
 
 function setVisualMode(mode){
   visualMode = mode;
+  if(traceSession) trackVisualChange(visualMode);
   const modeToggle = document.getElementById("modeToggle");
   if(modeToggle){
     modeToggle.textContent = visualMode === "orbit" ? "Visual: Orbit" : "Visual: Water";
@@ -467,6 +672,7 @@ function scheduleNextAuto(nowMs){
 function setMood(mood, options={}){
   if(!MOOD_VISUAL[mood]) return;
   activeMood = mood;
+  if(traceSession) trackMoodChange(activeMood);
   if(options.manual){
     const routeIndex = AUTO_ROUTE.indexOf(activeMood);
     if(routeIndex >= 0) autoIndex = routeIndex;
@@ -477,6 +683,7 @@ function setMood(mood, options={}){
 
 function setAuto(enabled){
   autoOn = Boolean(enabled);
+  if(traceSession) trackAutoChange(autoOn);
   if(autoOn && nextAutoAt <= millis()) scheduleNextAuto(millis());
   syncAudioMood();
   updateControlUi();
@@ -490,7 +697,9 @@ function namimaSnapshot(){
     started,
     mood_profiles_loaded: Object.keys(moodProfiles).length,
     latest_ambient_concept: latestAmbientConcept,
-    last_music_session: window.NamimaMusicSessionAdapter?.last ?? null
+    last_music_session: window.NamimaMusicSessionAdapter?.last ?? null,
+    trace_summary: traceSession ? currentTraceSummary("snapshot") : null,
+    last_trace_summary: lastTraceSummary
   };
 }
 
@@ -510,6 +719,9 @@ window.namimaAdapter = {
   snapshot: namimaSnapshot,
   applyMusicSessionPacket,
   translateMusicSessionPacket: (packet) => window.NamimaMusicSessionAdapter?.translateMusicSessionPacket(packet) ?? null,
+  saveLocalTraceSummary,
+  readLocalTraceSummaries,
+  traceSummary: () => currentTraceSummary("adapter"),
   safeRippleConcept
 };
 
@@ -560,6 +772,7 @@ function handleTap(x, y){
     gestureRate,
   });
   latestAmbientConcept = concept;
+  trackTraceTouch(concept);
 
   addSource(x, y, s, concept);
   if(visualMode === "orbit") nudgeOrbit(x, y, s);
@@ -590,13 +803,14 @@ function nudgeOrbit(x, y, strength){
 
 // PCクリック
 function mousePressed(event){
-  if(event?.target?.id === "modeToggle") return;
+  if(isUiControlTarget(event?.target)) return;
   handleTap(constrain(mouseX,0,width), constrain(mouseY,0,height));
 }
 
 // ★スマホタップ（これが重要）
-function touchStarted(){
+function touchStarted(event){
   if(!started) return false;
+  if(isUiControlTarget(event?.target)) return true;
   const tx = touches?.[0]?.x ?? mouseX;
   const ty = touches?.[0]?.y ?? mouseY;
   handleTap(constrain(tx,0,width), constrain(ty,0,height));
@@ -641,6 +855,7 @@ function draw(){
 
   const tNow = millis()/1000;
   advanceAutoMood(millis());
+  updateTraceSaveUi();
 
   // prune
   sources = sources.filter(s => (tNow - s.t0) < 7.2);

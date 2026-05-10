@@ -36,13 +36,19 @@ Namima は **Music のライト版**ではなく、
 - public pages 向けの公開体験を想定
 - **no samples / no dependencies** 方針（必要な体験を自前実装中心で維持）
 
-Mood profile schema: [docs/mood-profile-schema.md](docs/mood-profile-schema.md)
+## Current docs map
 
-Mood profiles: [profiles/mood-profiles.json](../profiles/mood-profiles.json)
-
-Input/output examples: [docs/input-output-example.md](docs/input-output-example.md)
-
-Ambient interaction contract: [docs/ambient-interaction-contract.md](docs/ambient-interaction-contract.md)
+- Stack role / local inventory: [namima-inventory-roadmap.md](namima-inventory-roadmap.md)
+- namima-lab lineage closure: [namima-lab-harvest-closure.md](namima-lab-harvest-closure.md)
+- Mood profile schema: [mood-profile-schema.md](mood-profile-schema.md)
+- Mood profiles: [profiles/mood-profiles.json](../profiles/mood-profiles.json)
+- Input/output examples: [input-output-example.md](input-output-example.md)
+- Ambient interaction contract: [ambient-interaction-contract.md](ambient-interaction-contract.md)
+- Ripple interaction design: [ripple-interaction-design.md](ripple-interaction-design.md)
+- Ambient listening scorecard: [ambient-listening-scorecard.md](ambient-listening-scorecard.md)
+- Safe Auto mood design: [safe-auto-mood-design.md](safe-auto-mood-design.md)
+- Session trace recorder design: [session-trace-recorder-design.md](session-trace-recorder-design.md)
+- Reference intake template: [namima-reference-intake-template.md](namima-reference-intake-template.md)
 
 Music session mood adapter: `music-session-adapter.js` exposes
 `window.NamimaMusicSessionAdapter.translateMusicSessionPacket(packet)` and
@@ -57,6 +63,4 @@ Music SYNC:
 - 音は `Tap to start` まで開始しません。
 - 録音、アップロード、サンプル、歌詞、raw trace保存はしません。
 - JSON貼り付けUIは、ローカル開発や別origin時のfallbackです。
-
-namima-lab harvest closure: [docs/namima-lab-harvest-closure.md](docs/namima-lab-harvest-closure.md)
 

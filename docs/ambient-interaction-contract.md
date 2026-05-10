@@ -4,9 +4,21 @@
 
 This document defines the interaction contract between `ripple interaction` and `mood profile` for Namima.
 
-Namima is a **Public-Friendly Ambient Player**. Touch should feel like tracing a water surface, not performing an experimental instrument. Future runtime work should use this contract before adding interaction behavior.
+Namima is a **Public-Friendly Ambient Player**. Touch should feel like tracing a water surface, not performing an experimental instrument. Runtime work should use this contract before adding interaction behavior.
 
-This is not a runtime implementation. It is a docs-only boundary for future implementation.
+This document started as a docs-only boundary. The first runtime micro-pilot now implements a small `safe ripple concept` layer behind this contract without adding dependencies, samples, audio files, schema changes, or Music packet changes.
+
+## Current Runtime Micro-Pilot
+
+The current runtime maps ripple state into safe ambient concepts before audio reacts:
+
+- `water_shimmer`
+- `air_lift`
+- `soft_pulse_visibility`
+- `melody_fragment_probability`
+- `fade_back_time`
+
+These values are metadata-like control concepts. They are not raw traces, recordings, or copied `namima-lab` behavior. High gesture energy is clamped into a safe response and should bias shimmer, air, and rare melody fragments rather than master loudness or low-end pressure.
 
 ## Inputs
 

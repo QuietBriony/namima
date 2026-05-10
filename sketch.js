@@ -10,6 +10,8 @@ let autoIndex = 0;
 let nextAutoAt = 0;
 let moodProfiles = {};
 let musicPacketPanelReady = false;
+let latestAmbientConcept = null;
+let lastGestureAt = 0;
 
 const MUSIC_STACK_PACKET_STORAGE_KEY = "qb:music-stack:latest-packet:v1";
 const MUSIC_STACK_CHANNEL_NAME = "qb:music-stack:v1";
@@ -45,8 +47,89 @@ const SETTINGS = {
   autoMaxMs: 480000,
 };
 
+const LEVEL_VALUES = Object.freeze({
+  none: 0,
+  minimal: 0.08,
+  very_low: 0.12,
+  low: 0.24,
+  low_medium: 0.34,
+  low_to_mid: 0.42,
+  medium_low: 0.44,
+  medium: 0.55,
+  medium_high: 0.72,
+  high: 0.86,
+  very_high: 1,
+  gentle: 0.36,
+  safe: 0.28,
+  soft_warm: 0.5,
+  cool: 0.45,
+});
+
 function isMobile(){
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
+function clamp01(value){
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+}
+
+function numberOr(value, fallback){
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function levelValue(value){
+  return LEVEL_VALUES[value] ?? 0.5;
+}
+
+function activeMoodProfile(){
+  return moodProfiles[activeMood] ?? null;
+}
+
+function safeRippleConcept(input={}){
+  const profile = input.profile ?? activeMoodProfile();
+  const bias = profile?.input_bias ?? {};
+  const rippleEnergy = clamp01(numberOr(input.rippleEnergy, 0));
+  const xPosition = clamp01(numberOr(input.xPosition, 0.5));
+  const gestureRate = clamp01(numberOr(input.gestureRate, 0));
+
+  const water = levelValue(bias.water_motion);
+  const garden = levelValue(bias.garden_air);
+  const rhythm = levelValue(bias.rhythm_density);
+  const lowEnd = levelValue(bias.low_end_pressure);
+  const texture = levelValue(bias.texture_amount);
+  const melody = levelValue(bias.melody_presence);
+  const sleep = levelValue(bias.sleepiness);
+  const familySafe = bias.family_safe !== false;
+
+  const energyCap = clamp01(0.76 - sleep * 0.26 - lowEnd * 0.10 - (familySafe ? 0 : 0.12));
+  const safeEnergy = Math.min(rippleEnergy, energyCap);
+  const calmGesture = Math.min(gestureRate, 0.72);
+
+  const waterShimmer = clamp01(0.08 + safeEnergy * (0.28 + water * 0.24 + texture * 0.10) + calmGesture * 0.05 - sleep * 0.14);
+  const airLift = clamp01(0.08 + safeEnergy * (0.22 + garden * 0.24) + xPosition * 0.06 - sleep * 0.10);
+  const softPulse = clamp01(0.03 + safeEnergy * (0.12 + rhythm * 0.18) + calmGesture * 0.03 - sleep * 0.16);
+  const melodyProbability = clamp01(0.025 + safeEnergy * (0.08 + melody * 0.18 + water * 0.04) - calmGesture * 0.04 - sleep * 0.14);
+  const fadeBackTime = Math.max(1.25, Math.min(3.8, 1.35 + sleep * 1.8 + (1 - safeEnergy) * 0.55 - calmGesture * 0.18));
+
+  const visualEnergy = clamp01(waterShimmer * 0.66 + airLift * 0.24 + softPulse * 0.10);
+  const audioEnergy = clamp01(waterShimmer * 0.42 + airLift * 0.38 + softPulse * 0.16 + melodyProbability * 0.04);
+
+  return {
+    schema: "namima.safe-ripple-concept.v1",
+    mood_id: activeMood,
+    x_position: Number(xPosition.toFixed(3)),
+    ripple_energy: Number(rippleEnergy.toFixed(3)),
+    safe_energy: Number(safeEnergy.toFixed(3)),
+    gesture_rate: Number(calmGesture.toFixed(3)),
+    water_shimmer: Number(waterShimmer.toFixed(3)),
+    air_lift: Number(airLift.toFixed(3)),
+    soft_pulse_visibility: Number(softPulse.toFixed(3)),
+    melody_fragment_probability: Number(melodyProbability.toFixed(3)),
+    fade_back_time: Number(fadeBackTime.toFixed(2)),
+    visual_energy: Number(visualEnergy.toFixed(3)),
+    audio_energy: Number(audioEnergy.toFixed(3)),
+  };
 }
 
 function setup(){
@@ -406,6 +489,7 @@ function namimaSnapshot(){
     visual_mode: visualMode,
     started,
     mood_profiles_loaded: Object.keys(moodProfiles).length,
+    latest_ambient_concept: latestAmbientConcept,
     last_music_session: window.NamimaMusicSessionAdapter?.last ?? null
   };
 }
@@ -425,7 +509,8 @@ function applyMusicSessionPacket(packet, options={}){
 window.namimaAdapter = {
   snapshot: namimaSnapshot,
   applyMusicSessionPacket,
-  translateMusicSessionPacket: (packet) => window.NamimaMusicSessionAdapter?.translateMusicSessionPacket(packet) ?? null
+  translateMusicSessionPacket: (packet) => window.NamimaMusicSessionAdapter?.translateMusicSessionPacket(packet) ?? null,
+  safeRippleConcept
 };
 
 if(document.readyState === "loading"){
@@ -448,19 +533,38 @@ function advanceAutoMood(nowMs){
   scheduleNextAuto(nowMs);
 }
 
-function addSource(x,y, strength=0.7){
-  sources.push({ x, y, t0: millis()/1000, strength });
+function addSource(x,y, strength=0.7, concept=null){
+  sources.push({
+    x,
+    y,
+    t0: millis()/1000,
+    strength,
+    xNorm: clamp01(x / Math.max(1, width)),
+    gestureRate: clamp01(concept?.gesture_rate ?? 0),
+  });
   if(sources.length > SETTINGS.maxSources) sources.shift();
 }
 
 function handleTap(x, y){
   if(!started) return;
+  const nowMs = millis();
+  const dt = lastGestureAt > 0 ? Math.max(16, nowMs - lastGestureAt) : 900;
+  const gestureRate = clamp01(190 / dt);
+  lastGestureAt = nowMs;
+
   const s = 0.55 + 0.45 * random();
-  addSource(x, y, s);
+  const xNorm = clamp01(x / Math.max(1, width));
+  const concept = safeRippleConcept({
+    rippleEnergy: s,
+    xPosition: xNorm,
+    gestureRate,
+  });
+  latestAmbientConcept = concept;
+
+  addSource(x, y, s, concept);
   if(visualMode === "orbit") nudgeOrbit(x, y, s);
 
-  // ★ここが鳴らす本体
-  if(window.AudioEngine) window.AudioEngine.onTap(x / width, s);
+  if(window.AudioEngine) window.AudioEngine.onTap(xNorm, s, concept);
 }
 
 function nudgeOrbit(x, y, strength){
@@ -541,15 +645,29 @@ function draw(){
   // prune
   sources = sources.filter(s => (tNow - s.t0) < 7.2);
 
-  // energy → audio
-  let energy = 0;
+  // ripple field -> safe ambient concept -> audio
+  let rawEnergy = 0;
+  let weightedX = 0;
+  let weightedGesture = 0;
+  let weight = 0;
   for(const s of sources){
     const dt = tNow - s.t0;
     if(dt < 0) continue;
-    energy += s.strength * Math.exp(-dt / SETTINGS.timeDecay) * mood.response;
+    const contribution = s.strength * Math.exp(-dt / SETTINGS.timeDecay) * mood.response;
+    rawEnergy += contribution;
+    weightedX += (s.xNorm ?? 0.5) * contribution;
+    weightedGesture += (s.gestureRate ?? 0) * contribution;
+    weight += contribution;
   }
-  energy = Math.min(1, energy / 2.0);
-  if(window.AudioEngine) window.AudioEngine.updateEnergy(energy);
+  const rippleEnergy = Math.min(1, rawEnergy / 2.0);
+  const concept = safeRippleConcept({
+    rippleEnergy,
+    xPosition: weight > 0 ? weightedX / weight : 0.5,
+    gestureRate: weight > 0 ? weightedGesture / weight : 0,
+  });
+  latestAmbientConcept = concept;
+  const energy = concept.visual_energy;
+  if(window.AudioEngine) window.AudioEngine.updateEnergy(concept);
 
   if(visualMode === "orbit"){
     drawOrbitMode(tNow, energy);

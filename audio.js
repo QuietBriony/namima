@@ -8,6 +8,7 @@ window.AudioEngine = (() => {
   let currentMood = "water_day";
   let autoOn = false;
   let currentProfileShape = null;
+  let lastAmbientConcept = null;
 
   const scale = ["C", "D", "Eb", "G", "Ab"];
   const MOOD_AUDIO = Object.freeze({
@@ -44,6 +45,41 @@ window.AudioEngine = (() => {
 
   function clamp01(value){
     return Math.max(0, Math.min(1, value));
+  }
+
+  function numberOr(value, fallback){
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function normalizeAmbientConcept(input, fallbackEnergy=0){
+    if(!input || typeof input !== "object"){
+      const energy = clamp01(numberOr(input, fallbackEnergy));
+      return {
+        safe_energy: energy,
+        water_shimmer: energy,
+        air_lift: energy * 0.74,
+        soft_pulse_visibility: energy * 0.34,
+        melody_fragment_probability: energy * 0.12,
+        fade_back_time: 1.8,
+        audio_energy: energy,
+      };
+    }
+
+    const safeEnergy = clamp01(numberOr(input.safe_energy ?? input.ripple_energy, fallbackEnergy));
+    const waterShimmer = clamp01(numberOr(input.water_shimmer, safeEnergy));
+    const airLift = clamp01(numberOr(input.air_lift, safeEnergy * 0.74));
+    const softPulse = clamp01(numberOr(input.soft_pulse_visibility, safeEnergy * 0.34));
+    const melodyProbability = clamp01(numberOr(input.melody_fragment_probability, safeEnergy * 0.12));
+    return {
+      safe_energy: safeEnergy,
+      water_shimmer: waterShimmer,
+      air_lift: airLift,
+      soft_pulse_visibility: softPulse,
+      melody_fragment_probability: melodyProbability,
+      fade_back_time: Math.max(1.25, Math.min(3.8, numberOr(input.fade_back_time, 1.8))),
+      audio_energy: clamp01(numberOr(input.audio_energy, waterShimmer * 0.42 + airLift * 0.38 + softPulse * 0.16 + melodyProbability * 0.04)),
+    };
   }
 
   function levelValue(value){
@@ -163,7 +199,7 @@ window.AudioEngine = (() => {
     console.log("Tone started");
   }
 
-  function onTap(xNorm, intensity=0.6){
+  function onTap(xNorm, intensity=0.6, conceptInput=null){
     if(!started) return;
 
     const now = Tone.now();
@@ -171,21 +207,26 @@ window.AudioEngine = (() => {
     lastTapTime = now;
 
     const shape = moodAudio();
-    const n = noteFromX(xNorm);
-    const vel = Math.min(shape.tapMax, (0.12 + intensity * 0.45) * shape.tapScale);
+    const concept = normalizeAmbientConcept(conceptInput, intensity);
+    lastAmbientConcept = concept;
+    const n = noteFromX(clamp01(xNorm));
+    const vel = Math.min(shape.tapMax, (0.10 + concept.safe_energy * 0.30 + concept.soft_pulse_visibility * 0.05) * shape.tapScale);
+    const melodyChance = Math.min(0.36, (shape.melodyChance ?? 0.28) * 0.55 + concept.melody_fragment_probability * 0.62);
+    const padChance = Math.min(0.52, (shape.padChance ?? 0.32) * 0.56 + concept.soft_pulse_visibility * 0.34);
+    const airChance = Math.min(0.76, shape.airChance * 0.58 + concept.air_lift * 0.42);
 
-    if(Math.random() < (shape.melodyChance ?? 0.32)){
-      pluck.triggerAttackRelease(n, 0.22 + intensity * 0.22, now, vel * 0.85);
+    if(Math.random() < melodyChance){
+      pluck.triggerAttackRelease(n, 0.20 + concept.safe_energy * 0.16, now, vel * 0.82);
     }
 
-    if(dt > 0.18 && Math.random() < (shape.padChance ?? 0.36)){
-      const n2 = noteFromX((xNorm + 0.17) % 1);
-      pad.triggerAttackRelease([n, n2], 1.35 + (shape.tailWet ?? 0.06) * 3.4, now + 0.02, vel * 0.13);
+    if(dt > 0.18 && Math.random() < padChance){
+      const n2 = noteFromX((clamp01(xNorm) + 0.17) % 1);
+      pad.triggerAttackRelease([n, n2], 1.2 + concept.fade_back_time * 0.36, now + 0.02, vel * 0.12);
     }
 
-    if(Math.random() < shape.airChance){
-      const n2 = noteFromX((xNorm + 0.2) % 1);
-      air.triggerAttackRelease([n, n2], 2.7 + (shape.tailWet ?? 0.06) * 5.2, now + 0.02, vel * 0.15);
+    if(Math.random() < airChance){
+      const n2 = noteFromX((clamp01(xNorm) + 0.2) % 1);
+      air.triggerAttackRelease([n, n2], 2.2 + concept.fade_back_time * 0.72, now + 0.02, vel * 0.14);
     }
   }
 
@@ -223,20 +264,21 @@ window.AudioEngine = (() => {
     return autoOn;
   }
 
-  function updateEnergy(e){
+  function updateEnergy(input){
     if(!started) return;
-    const energy = Math.max(0, Math.min(1, e));
+    const concept = normalizeAmbientConcept(input, 0);
+    lastAmbientConcept = concept;
     const shape = moodAudio();
     const autoLift = autoOn ? 0.03 : 0;
 
-    filter.frequency.rampTo(shape.filterBase + energy * shape.filterRange, 0.12);
-    airFilter.frequency.rampTo(shape.airBase + energy * 420, 0.16);
-    tailFilter.frequency.rampTo((shape.tailCutoff ?? 1450) + energy * 360, 0.18);
-    reverb.wet.rampTo(Math.min(0.42, shape.reverbWet + energy * 0.16 + autoLift), 0.18);
-    shimmer.wet.rampTo(Math.min(0.22, shape.shimmerWet + energy * 0.11), 0.18);
-    tailDelay.wet.rampTo(Math.min(0.17, (shape.tailWet ?? 0.06) + energy * 0.035), 0.18);
-    tailGain.gain.rampTo(Math.min(0.14, (shape.tailGain ?? 0.09) + energy * 0.025), 0.18);
-    master.gain.rampTo(Math.min(0.74, shape.gain + energy * 0.055), 0.18);
+    filter.frequency.rampTo(shape.filterBase + concept.water_shimmer * shape.filterRange * 0.86, 0.16);
+    airFilter.frequency.rampTo(shape.airBase + concept.air_lift * 360, 0.18);
+    tailFilter.frequency.rampTo((shape.tailCutoff ?? 1450) + concept.water_shimmer * 260 + concept.air_lift * 120, 0.22);
+    reverb.wet.rampTo(Math.min(0.40, shape.reverbWet + concept.air_lift * 0.11 + autoLift), 0.22);
+    shimmer.wet.rampTo(Math.min(0.21, shape.shimmerWet + concept.water_shimmer * 0.09), 0.22);
+    tailDelay.wet.rampTo(Math.min(0.16, (shape.tailWet ?? 0.06) + concept.soft_pulse_visibility * 0.028), 0.22);
+    tailGain.gain.rampTo(Math.min(0.135, (shape.tailGain ?? 0.09) + concept.soft_pulse_visibility * 0.018), 0.22);
+    master.gain.rampTo(Math.min(0.72, shape.gain + concept.air_lift * 0.026), 0.22);
   }
 
   return {
@@ -248,6 +290,7 @@ window.AudioEngine = (() => {
     setAuto,
     get mood(){ return currentMood; },
     get auto(){ return autoOn; },
+    get ambientConcept(){ return lastAmbientConcept; },
     get started(){ return started; }
   };
 })();

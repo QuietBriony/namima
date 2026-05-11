@@ -47,6 +47,10 @@ window.AudioEngine = (() => {
     return Math.max(0, Math.min(1, value));
   }
 
+  function masteredGain(value){
+    return Math.min(0.8, value * 1.08 + 0.02);
+  }
+
   function numberOr(value, fallback){
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
@@ -148,7 +152,7 @@ window.AudioEngine = (() => {
     // iOSで念のため
     if (Tone.context.state !== "running") await Tone.context.resume();
 
-    limiter = new Tone.Limiter(-1).toDestination();
+    limiter = new Tone.Limiter(-0.8).toDestination();
     master  = new Tone.Gain(0.9);
     filter  = new Tone.Filter({ type:"lowpass", frequency: 900, Q: 0.6 });
     airFilter = new Tone.Filter({ type:"highpass", frequency: 360, Q: 0.5 });
@@ -241,7 +245,7 @@ window.AudioEngine = (() => {
     tailDelay.wet.rampTo(shape.tailWet ?? 0.06, ramp);
     tailDelay.feedback.value = Math.min(0.24, 0.11 + (shape.tailWet ?? 0.06) * 0.85);
     tailGain.gain.rampTo(shape.tailGain ?? 0.09, ramp);
-    master.gain.rampTo(shape.gain, ramp);
+    master.gain.rampTo(masteredGain(shape.gain), ramp);
   }
 
   function setMood(mood){
@@ -278,7 +282,7 @@ window.AudioEngine = (() => {
     shimmer.wet.rampTo(Math.min(0.21, shape.shimmerWet + concept.water_shimmer * 0.09), 0.22);
     tailDelay.wet.rampTo(Math.min(0.16, (shape.tailWet ?? 0.06) + concept.soft_pulse_visibility * 0.028), 0.22);
     tailGain.gain.rampTo(Math.min(0.135, (shape.tailGain ?? 0.09) + concept.soft_pulse_visibility * 0.018), 0.22);
-    master.gain.rampTo(Math.min(0.72, shape.gain + concept.air_lift * 0.026), 0.22);
+    master.gain.rampTo(masteredGain(shape.gain + concept.air_lift * 0.026), 0.22);
   }
 
   return {

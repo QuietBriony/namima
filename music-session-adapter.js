@@ -22,6 +22,78 @@ window.NamimaMusicSessionAdapter = (() => {
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
 
+  function destinationFromTargetRepo(targetRepo){
+    const map = {
+      Music: "music",
+      "drum-floor": "drum_floor",
+      namima: "namima",
+      chill: "chill",
+      OpenClaw: "openclaw"
+    };
+    return map[targetRepo] || "openclaw";
+  }
+
+  function normalizeMusicPacket(packet){
+    if(!packet || packet.version !== "music-orchestra-packet.v1") return packet;
+    const musicState = object(packet.music_state);
+    const performance = object(musicState.performance_summary);
+    const routing = object(packet.routing);
+    const namima = object(routing.namima);
+    const openclaw = object(routing.openclaw);
+    const promotion = object(packet.promotion);
+    return {
+      version: 1,
+      source_repo: "Music",
+      created_at: packet.created_at,
+      session_id: packet.session_id,
+      mode: musicState.mode || "orchestra",
+      reference_gradient: {
+        weights: object(packet.reference_gradient)
+      },
+      ucm_state: object(musicState.ucm_state),
+      performance_state: {
+        active_pad: performance.active_pad || null,
+        recent_pads: Array.isArray(performance.recent_pads) ? performance.recent_pads : [],
+        automix_enabled: !!performance.automix_enabled,
+        mic_follow: object(packet.mic_follow),
+        radio_brain: { program: performance.radio_program || null, metadata_only: true },
+        hazama_fm: performance.hazama_fm_genre ? { genre: performance.hazama_fm_genre, integration_mode: "metadata-only" } : null
+      },
+      routing: {
+        namima: {
+          enabled: namima.enabled !== false,
+          mood_intent: {
+            mood: String(namima.intent || "").toLowerCase().includes("garden") ? "garden_haze" : "calm_water",
+            review_only: true
+          },
+          family_safe: true,
+          review_reason: namima.intent || namima.next_action || "Music orchestra packetから作るsafe mood候補。",
+          review_only: true
+        },
+        openclaw: {
+          enabled: true,
+          promotion_status: promotion.status || "draft",
+          human_review_required: true,
+          next_action: {
+            destination: destinationFromTargetRepo(promotion.target_repo),
+            label: promotion.target_repo || "OpenClaw",
+            reason: promotion.reviewer_note || openclaw.intent || "",
+            action: openclaw.next_action || promotion.rollback || "",
+            metadata_only: true
+          },
+          review_only: true
+        }
+      },
+      safety: {
+        stores_audio: false,
+        stores_samples: false,
+        stores_lyrics: false,
+        metadata_only: true,
+        human_review_required: true
+      }
+    };
+  }
+
   function micFollow(packet){
     const mic = object(object(packet?.performance_state).mic_follow);
     const confidence = unit(mic.confidence);
@@ -64,6 +136,7 @@ window.NamimaMusicSessionAdapter = (() => {
   }
 
   function translateMusicSessionPacket(packet){
+    packet = normalizeMusicPacket(packet);
     const routing = object(packet?.routing);
     const namima = object(routing.namima);
     const gradient = object(packet?.reference_gradient?.weights);

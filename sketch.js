@@ -18,6 +18,8 @@ let traceSaveLabelResetAt = 0;
 
 const MUSIC_STACK_PACKET_STORAGE_KEY = "qb:music-stack:latest-packet:v1";
 const MUSIC_STACK_CHANNEL_NAME = "qb:music-stack:v1";
+const MUSIC_ORCHESTRA_PACKET_STORAGE_KEY = "qb:music-stack:latest-orchestra-packet:v1";
+const MUSIC_ORCHESTRA_CHANNEL_NAME = "qb:music-stack:orchestra:v1";
 const TRACE_STORAGE_KEY = "namima:session-trace:v1";
 const TRACE_LIMIT = 8;
 
@@ -531,6 +533,8 @@ function clearMusicPacketPanel(){
 function musicPacketFromStackPayload(payload){
   if(!payload || typeof payload !== "object") return null;
   if(payload.packet && typeof payload.packet === "object" && payload.packet.source_repo === "Music") return payload.packet;
+  if(payload.packet && typeof payload.packet === "object" && payload.packet.version === "music-orchestra-packet.v1") return payload.packet;
+  if(payload.version === "music-orchestra-packet.v1") return payload;
   if(payload.source_repo === "Music") return payload;
   return null;
 }
@@ -565,7 +569,8 @@ function receiveMusicStackPacket(payload, source="sync"){
 
 function readLatestMusicStackPacket(){
   try {
-    const raw = window.localStorage?.getItem(MUSIC_STACK_PACKET_STORAGE_KEY);
+    const raw = window.localStorage?.getItem(MUSIC_STACK_PACKET_STORAGE_KEY)
+      || window.localStorage?.getItem(MUSIC_ORCHESTRA_PACKET_STORAGE_KEY);
     if(!raw) return false;
     return receiveMusicStackPacket(JSON.parse(raw), "latest");
   } catch (error) {
@@ -580,12 +585,14 @@ function setupMusicStackSyncReceiver(){
     if(typeof window.BroadcastChannel === "function"){
       const channel = new window.BroadcastChannel(MUSIC_STACK_CHANNEL_NAME);
       channel.addEventListener("message", (event) => receiveMusicStackPacket(event.data, "broadcast"));
+      const orchestraChannel = new window.BroadcastChannel(MUSIC_ORCHESTRA_CHANNEL_NAME);
+      orchestraChannel.addEventListener("message", (event) => receiveMusicStackPacket(event.data, "orchestra-broadcast"));
     }
   } catch (error) {
     console.warn("[namima] Music stack BroadcastChannel unavailable:", error);
   }
   window.addEventListener("storage", (event) => {
-    if(event.key !== MUSIC_STACK_PACKET_STORAGE_KEY || !event.newValue) return;
+    if(![MUSIC_STACK_PACKET_STORAGE_KEY, MUSIC_ORCHESTRA_PACKET_STORAGE_KEY].includes(event.key) || !event.newValue) return;
     try {
       receiveMusicStackPacket(JSON.parse(event.newValue), "storage");
     } catch (error) {

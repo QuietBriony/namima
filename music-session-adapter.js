@@ -22,6 +22,31 @@ window.NamimaMusicSessionAdapter = (() => {
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
 
+  function intentTokens(value){
+    if(Array.isArray(value)) return value.map((item) => String(item || "").toLowerCase());
+    if(value && typeof value === "object") {
+      return Object.values(value).map((item) => String(item || "").toLowerCase());
+    }
+    return String(value || "").toLowerCase().split(/[\s,;/|]+/).filter(Boolean);
+  }
+
+  function moodIntent(value){
+    const obj = object(value);
+    const tokens = intentTokens(value);
+    const mood = String(obj.mood || tokens.find((token) => (
+      token.includes("water") ||
+      token.includes("garden") ||
+      token.includes("transparent") ||
+      token.includes("family") ||
+      token.includes("sleep")
+    )) || "").toLowerCase();
+    return {
+      mood,
+      safeEnergyCap: obj.safe_energy_cap,
+      tokens
+    };
+  }
+
   function destinationFromTargetRepo(targetRepo){
     const map = {
       Music: "music",
@@ -112,8 +137,8 @@ window.NamimaMusicSessionAdapter = (() => {
   }
 
   function chooseMood(packet, namima, gradient, mic){
-    const moodIntent = object(namima.mood_intent);
-    const mood = String(moodIntent.mood || namima.mood_intent || "").toLowerCase();
+    const intent = moodIntent(namima.mood_intent);
+    const mood = intent.mood;
     const ucm = object(packet?.ucm_state);
     const energy = percent(ucm.energy, 0) / 100;
     const voidness = percent(ucm.void, 0) / 100;
@@ -130,7 +155,7 @@ window.NamimaMusicSessionAdapter = (() => {
     }
     if(mood.includes("transparent") || voidness > 0.58) return energy < 0.28 ? "soft_sleep" : "transparent_evening";
     if(mood.includes("garden") || calm > 0.62) return "garden_morning";
-    if(mood.includes("family") || energy > 0.52) return "family_room";
+    if((mood.includes("family") && !intent.tokens.includes("water_day")) || energy > 0.52) return "family_room";
     if(mood.includes("sleep")) return "soft_sleep";
     return "water_day";
   }
@@ -149,7 +174,7 @@ window.NamimaMusicSessionAdapter = (() => {
     const waterMotion = unit(namima.water_motion, clamp(percent(ucm.wave, 35) / 100 + micWater * 0.16 + micAir * 0.08, 0, 1));
     const calmContinuity = unit((percent(ucm.circle, 0) + percent(ucm.observer, 0)) / 200, 0.45);
     const energy = percent(ucm.energy, 0) / 100;
-    const safeEnergyCap = unit(object(namima.mood_intent).safe_energy_cap, 0.54);
+    const safeEnergyCap = unit(moodIntent(namima.mood_intent).safeEnergyCap, 0.54);
 
     return {
       schema: "namima.music-session-mood-adapter.v1",

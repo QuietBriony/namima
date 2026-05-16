@@ -172,6 +172,34 @@
     }
     #packetStatus.is-ok{ color:rgba(184,238,205,0.9); }
     #packetStatus.is-error{ color:rgba(255,198,188,0.92); }
+    .stack-return{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+      padding:7px;
+      border:1px solid rgba(210,235,255,0.14);
+      border-radius:10px;
+      background:rgba(2,6,10,0.36);
+    }
+    .stack-return a{
+      min-height:28px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border:1px solid rgba(210,235,255,0.18);
+      border-radius:999px;
+      background:rgba(20,38,48,0.48);
+      color:rgba(232,246,255,0.78);
+      text-decoration:none;
+      padding:0 9px;
+      font:11px/1.2 system-ui,-apple-system,Segoe UI,sans-serif;
+      letter-spacing:0.03em;
+    }
+    .stack-return a:hover,.stack-return a:focus-visible{
+      color:rgba(235,255,244,0.96);
+      border-color:rgba(184,238,205,0.36);
+    }
     .share-link-button{
       position:fixed; top:calc(10px + env(safe-area-inset-top,0px)); right:calc(10px + env(safe-area-inset-right,0px));
       z-index:20; min-height:30px; border:1px solid rgba(210,235,255,0.24); border-radius:999px;
@@ -237,6 +265,13 @@
     <h2>SYNC後は、Tap to start。</h2>
     <p>MusicでSYNCするとsafe moodが自動で寄ります。音を聴く時だけ画面をタップします。</p>
     <p id="packetStatus">MusicでSYNCすると自動受信します。貼り付け欄はfallbackです。</p>
+    <div class="stack-return" aria-label="Music Stack return links">
+      <a href="https://quietbriony.github.io/Music/fm.html?to=namima">Hazama FM</a>
+      <a href="https://quietbriony.github.io/Music/band-room.html?to=namima">Band Room</a>
+      <a href="https://quietbriony.github.io/drum-floor/?from=namima">Drum Floor</a>
+      <a href="https://quietbriony.github.io/chill/session.html?from=namima">Chill</a>
+      <a href="https://quietbriony.github.io/openclaw/?from=namima">OpenClaw</a>
+    </div>
     <div class="packet-actions">
       <button id="packetClose" type="button">閉じる</button>
     </div>
@@ -257,9 +292,9 @@
   <!-- Tone.js -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 
-  <script src="./audio.js?v=pwa-1"></script>
-  <script src="./music-session-adapter.js?v=pwa-1"></script>
-  <script src="./sketch.js?v=pwa-1"></script>
+  <script src="./audio.js?v=stack-2"></script>
+  <script src="./music-session-adapter.js?v=stack-2"></script>
+  <script src="./sketch.js?v=stack-2"></script>
   <script>
     (() => {
       const button = document.querySelector("[data-share-link]");

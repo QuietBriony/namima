@@ -1,9 +1,11 @@
 # Namima
 
-## これからの定義
+## Current stack role
 
-Namima は **Music のライト版**ではなく、  
-**Public-Friendly Ambient Player** として開発・運用します。
+Namima は **Music のライト版**ではなく、Music Stack の
+**Public-Friendly Ambient Player** です。Music / Hazama FM / Band Room
+から来た `SYNC` を、family-safe な水面、庭、透明感、soft sleep の mood に
+翻訳します。音は必ず `Tap to start` まで始まりません。
 
 ### 方向性（不変）
 
@@ -56,6 +58,16 @@ Music session mood adapter: `music-session-adapter.js` exposes
 human-reviewed Music packet routing. It never stores audio, samples, lyrics, or
 raw interaction streams.
 
+Current stack alignment:
+- Hazama FM v172 の `review_cue` は `source_context.hazama_fm` として読み、
+  `piano foreground` は透明な evening air、`safe ambient` は water/garden、
+  `techno balance` は低刺激な family/water 側へ寄せます。
+- Band Room の drum-floor handoff は `source_context.source_surface =
+  "band_room"` として診断に残しますが、`routing.namima.enabled = false` の
+  ままなら Namima は勝手に mood を採用しません。
+- Drum Floor / Chill / OpenClaw への戻りリンクを Music SYNC panel に置き、
+  PWA standalone でも現在URLと行き先を確認できます。
+
 Music SYNC:
 - Musicの `SYNC` はmetadata-onlyの現在状態共有です。
 - namimaは `routing.namima` をsafe moodへ翻訳します。
@@ -63,4 +75,8 @@ Music SYNC:
 - 音は `Tap to start` まで開始しません。
 - 録音、アップロード、サンプル、歌詞、raw trace保存はしません。
 - JSON貼り付けUIは、ローカル開発や別origin時のfallbackです。
+
+Diagnostics:
+- `window.namimaAdapter.snapshot().stack_alignment`
+- `window.NamimaMusicSessionAdapter.last.source_context`
 

@@ -515,6 +515,7 @@ function renderPacketTranslation(translation){
   output.textContent = JSON.stringify({
     source_session_id: translation.source_session_id,
     mood_id: translation.mood_id,
+    source_context: translation.source_context,
     intent: translation.intent,
     visual_hint: translation.visual_hint,
     safety: translation.safety
@@ -587,7 +588,8 @@ function receiveMusicStackPacket(payload, source="sync"){
     if(!translation) throw new Error("Music session adapter is not ready");
     if(input) input.value = JSON.stringify(packet, null, 2);
     renderPacketTranslation(translation);
-    setPacketStatus(`SYNC受信: ${translation.source_session_id || source} を ${translation.mood_id}${musicMicHint(translation)} へ反映しました。Tap to startまで音は始まりません。`, "ok");
+    const surface = translation.source_context?.source_surface || source;
+    setPacketStatus(`SYNC受信: ${surface} / ${translation.source_session_id || source} を ${translation.mood_id}${musicMicHint(translation)} へ反映しました。Tap to startまで音は始まりません。`, "ok");
     if(toggle) toggle.textContent = "Music SYNC: synced";
     const moodBadge = document.getElementById("moodBadge");
     if(moodBadge) moodBadge.textContent = `Music: ${translation.mood_id}`;
@@ -736,6 +738,7 @@ function namimaSnapshot(){
     mood_profiles_loaded: Object.keys(moodProfiles).length,
     latest_ambient_concept: latestAmbientConcept,
     last_music_session: window.NamimaMusicSessionAdapter?.last ?? null,
+    stack_alignment: window.NamimaMusicSessionAdapter?.last?.source_context ?? null,
     trace_summary: traceSession ? currentTraceSummary("snapshot") : null,
     last_trace_summary: lastTraceSummary
   };

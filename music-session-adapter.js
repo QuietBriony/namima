@@ -58,6 +58,70 @@ window.NamimaMusicSessionAdapter = (() => {
     return map[targetRepo] || "openclaw";
   }
 
+  function hazamaContext(packet){
+    const performance = object(packet?.performance_state);
+    const hazama = object(performance.hazama_fm);
+    const routing = object(packet?.routing);
+    const nextAction = object(object(routing.openclaw).next_action);
+    const cue = object(hazama.review_cue || nextAction.fm_review_cue);
+    const trace = object(hazama.listening_trace);
+    return {
+      active: hazama.active === true,
+      genre: String(trace.current_genre || hazama.genre || "").toLowerCase(),
+      source: String(hazama.source || "").toLowerCase(),
+      role: String(hazama.role || "").toLowerCase(),
+      cue_label: String(cue.short_label || cue.label || "").toLowerCase(),
+      next_task: String(cue.next_task || "").toLowerCase(),
+      target_repo: String(cue.target_repo || cue.destination || nextAction.destination || "").toLowerCase(),
+      metadata_only: hazama.integration_mode === "metadata-only" || cue.metadata_only !== false
+    };
+  }
+
+  function sourceContext(packet){
+    const hazama = hazamaContext(packet);
+    const mode = String(packet?.mode || "").toLowerCase();
+    const radio = object(object(packet?.performance_state).radio_brain);
+    const openclaw = object(object(packet?.routing).openclaw);
+    const nextAction = object(openclaw.next_action);
+    const sourceSurface = mode === "band_room" || String(radio.program || "").toLowerCase() === "band-room"
+      ? "band_room"
+      : (hazama.active || hazama.genre || hazama.cue_label)
+        ? "hazama_fm"
+        : "music_core";
+    return {
+      source_surface: sourceSurface,
+      route_destination: String(nextAction.destination || ""),
+      review_hint: String(nextAction.label || nextAction.reason || ""),
+      hazama_fm: hazama,
+      band_room: sourceSurface === "band_room"
+        ? {
+            section: String(packet?.performance_state?.active_pad || ""),
+            review_only: true,
+            metadata_only: true
+          }
+        : null
+    };
+  }
+
+  function hazamaMoodOverride(context, energy){
+    const hazama = context.hazama_fm || {};
+    const text = `${hazama.genre} ${hazama.source} ${hazama.role} ${hazama.cue_label} ${hazama.next_task} ${hazama.target_repo}`;
+    if(!text.trim()) return "";
+    if(text.includes("ambient") || text.includes("namima") || text.includes("safe ambient")) {
+      return energy > 0.46 ? "water_day" : "garden_morning";
+    }
+    if(text.includes("piano foreground")) {
+      return "transparent_evening";
+    }
+    if(text.includes("chill") || text.includes("piano")) {
+      return energy < 0.24 ? "soft_sleep" : "transparent_evening";
+    }
+    if(text.includes("techno balance") || text.includes("drum") || text.includes("funk")) {
+      return energy > 0.5 ? "family_room" : "water_day";
+    }
+    return "";
+  }
+
   function normalizeMusicPacket(packet){
     if(!packet || packet.version !== "music-orchestra-packet.v1") return packet;
     const musicState = object(packet.music_state);
@@ -136,7 +200,7 @@ window.NamimaMusicSessionAdapter = (() => {
     };
   }
 
-  function chooseMood(packet, namima, gradient, mic){
+  function chooseMood(packet, namima, gradient, mic, context){
     const intent = moodIntent(namima.mood_intent);
     const mood = intent.mood;
     const ucm = object(packet?.ucm_state);
@@ -145,6 +209,7 @@ window.NamimaMusicSessionAdapter = (() => {
     const circle = percent(ucm.circle, 0) / 100;
     const observer = percent(ucm.observer, 0) / 100;
     const calm = circle * 0.3 + observer * 0.28 + voidness * 0.2 + unit(gradient.haze) * 0.22;
+    const hazamaMood = hazamaMoodOverride(context, energy);
 
     if(namima.family_safe === false) return "family_room";
     if(mic?.enabled && mic.confidence > 0.16){
@@ -153,6 +218,7 @@ window.NamimaMusicSessionAdapter = (() => {
       if(mic.gesture === "clap" || mic.gesture === "pulse") return "water_day";
       if(mic.gesture === "noisy") return "family_room";
     }
+    if(hazamaMood) return hazamaMood;
     if(mood.includes("transparent") || voidness > 0.58) return energy < 0.28 ? "soft_sleep" : "transparent_evening";
     if(mood.includes("garden") || calm > 0.62) return "garden_morning";
     if((mood.includes("family") && !intent.tokens.includes("water_day")) || energy > 0.52) return "family_room";
@@ -167,9 +233,10 @@ window.NamimaMusicSessionAdapter = (() => {
     const gradient = object(packet?.reference_gradient?.weights);
     const ucm = object(packet?.ucm_state);
     const mic = micFollow(packet);
+    const context = sourceContext(packet);
     const micWater = mic.enabled ? Math.max(mic.pulse, mic.clap, mic.drive * 0.48) * mic.confidence : 0;
     const micAir = mic.enabled ? Math.max(mic.air, mic.hum * 0.72) * mic.confidence : 0;
-    const moodId = chooseMood(packet, namima, gradient, mic);
+    const moodId = chooseMood(packet, namima, gradient, mic, context);
     const brightness = unit(namima.brightness, unit(gradient.chrome, 0.42));
     const waterMotion = unit(namima.water_motion, clamp(percent(ucm.wave, 35) / 100 + micWater * 0.16 + micAir * 0.08, 0, 1));
     const calmContinuity = unit((percent(ucm.circle, 0) + percent(ucm.observer, 0)) / 200, 0.45);
@@ -198,6 +265,7 @@ window.NamimaMusicSessionAdapter = (() => {
           bpm_lock: Math.round(mic.bpm_lock)
         }
       },
+      source_context: context,
       visual_hint: {
         mode: moodId === "transparent_evening" ? "orbit" : "water",
         ripple_response: Number(Math.min(0.72, 0.28 + waterMotion * 0.34 + calmContinuity * 0.1).toFixed(3))

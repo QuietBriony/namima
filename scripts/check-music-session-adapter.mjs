@@ -35,6 +35,7 @@ const basePacket = {
 };
 
 assert.equal(adapter.translateMusicSessionPacket(basePacket).mood_id, "water_day", "object mood_intent should keep calm_water on water_day");
+assert.equal(adapter.translateMusicSessionPacket(basePacket).source_context.source_surface, "music_core", "base Music packet should identify music_core");
 
 const legacyArrayPacket = structuredClone(basePacket);
 legacyArrayPacket.routing.namima.mood_intent = ["water_day", "family_safe", "soft air"];
@@ -44,5 +45,27 @@ const familyPacket = structuredClone(basePacket);
 familyPacket.routing.namima.mood_intent = ["family_safe", "soft air"];
 familyPacket.ucm_state.energy = 62;
 assert.equal(adapter.translateMusicSessionPacket(familyPacket).mood_id, "family_room", "family-safe high energy fallback should remain family_room");
+
+const hazamaPianoPacket = structuredClone(basePacket);
+hazamaPianoPacket.performance_state.hazama_fm = {
+  active: true,
+  genre: "piano",
+  review_cue: {
+    short_label: "piano foreground",
+    target_repo: "chill",
+    metadata_only: true
+  },
+  integration_mode: "metadata-only",
+  review_only: true
+};
+assert.equal(adapter.translateMusicSessionPacket(hazamaPianoPacket).mood_id, "transparent_evening", "Hazama piano cue should become transparent evening air");
+assert.equal(adapter.translateMusicSessionPacket(hazamaPianoPacket).source_context.source_surface, "hazama_fm", "Hazama packet should identify hazama_fm");
+
+const bandRoomPacket = structuredClone(basePacket);
+bandRoomPacket.mode = "band_room";
+bandRoomPacket.routing.namima.enabled = false;
+bandRoomPacket.performance_state.radio_brain = { program: "band-room", metadata_only: true };
+assert.equal(adapter.translateMusicSessionPacket(bandRoomPacket).enabled, false, "Band Room drum handoff should stay disabled for namima");
+assert.equal(adapter.translateMusicSessionPacket(bandRoomPacket).source_context.source_surface, "band_room", "Band Room packet should identify band_room");
 
 console.log("Namima music session adapter check passed");

@@ -29,8 +29,17 @@ with no DAW or external plugins required.
 ## Development
 
 1. Clone this repo
-2. Open `index.html` in a modern browser (Chrome / Edge / Safari)
-3. Click **START** and move the sliders
+2. Serve the repo root with `python -m http.server`
+3. Open `index.html` in a modern browser (Chrome / Edge / Safari)
+4. Tap **Tap to start** and touch the water surface
+
+## PWA shell
+
+- `index.html` is installable through `manifest.webmanifest`.
+- `sw.js` caches only the local app shell, mood/profile metadata, docs, and icons under the `namima-pwa` cache prefix.
+- p5.js and Tone.js stay as pinned CDN dependencies and are cached at runtime after an online load.
+- Mobile lifecycle is guarded: screen lock, backgrounding, `pagehide`, and `freeze` release voices, quiet audio, and show the tap-to-restart overlay.
+- Static PWA contract check: `node scripts/check-pwa-static.mjs`.
 
 Namima is designed for **non-programmer track makers** first:
 you play it like an instrument, not like a DAW.

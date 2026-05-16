@@ -333,6 +333,37 @@ function setupTraceRecorder(){
   });
 }
 
+function showRestartOverlay(message="音を再開するには Tap してください"){
+  const overlay = document.getElementById("startOverlay");
+  if(!overlay) return;
+  const sub = overlay.querySelector(".start-sub");
+  const note = overlay.querySelector(".start-sync-note");
+  if(sub) sub.textContent = "音を再開します";
+  if(note) note.textContent = message;
+  overlay.style.display = "flex";
+}
+
+function quietForPageLifecycle(reason="background"){
+  if(!started && !window.AudioEngine?.started) return;
+  started = false;
+  sources = [];
+  try { window.AudioEngine?.panic?.(reason); } catch (error) {
+    console.warn("[namima] lifecycle panic failed", error);
+  }
+  showRestartOverlay(`${reason}: Tapで再開します。Music SYNCのmoodは保持します。`);
+}
+
+function setupPageLifecycleGuard(){
+  window.addEventListener("pagehide", () => quietForPageLifecycle("pagehide"));
+  window.addEventListener("blur", () => {
+    if(document.visibilityState === "hidden") quietForPageLifecycle("screen lock");
+  });
+  document.addEventListener("visibilitychange", () => {
+    if(document.visibilityState === "hidden") quietForPageLifecycle("background");
+  });
+  document.addEventListener("freeze", () => quietForPageLifecycle("freeze"));
+}
+
 function isUiControlTarget(target){
   return Boolean(target?.closest?.("#controlBar, #packetPanel, #startOverlay"));
 }
@@ -736,10 +767,12 @@ if(document.readyState === "loading"){
   document.addEventListener("DOMContentLoaded", () => {
     setupMusicPacketPanel();
     setupMusicStackSyncReceiver();
+    setupPageLifecycleGuard();
   }, { once: true });
 } else {
   setupMusicPacketPanel();
   setupMusicStackSyncReceiver();
+  setupPageLifecycleGuard();
 }
 
 function advanceAutoMood(nowMs){

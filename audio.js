@@ -51,6 +51,44 @@ window.AudioEngine = (() => {
     return Math.min(0.8, value * 1.08 + 0.02);
   }
 
+  function releaseVoices(reason="release"){
+    const now = typeof Tone !== "undefined" && typeof Tone.now === "function" ? Tone.now() : 0;
+    [pad, air, pluck].forEach((voice) => {
+      try {
+        if(typeof voice?.releaseAll === "function") voice.releaseAll(now);
+        else if(typeof voice?.triggerRelease === "function") voice.triggerRelease(now);
+      } catch (error) {
+        console.warn(`[Namima] ${reason} release failed`, error);
+      }
+    });
+  }
+
+  function disposeNodes(nodes){
+    nodes.forEach((node) => {
+      try { node?.dispose?.(); } catch (error) {
+        console.warn("[Namima] dispose failed", error);
+      }
+    });
+  }
+
+  function panic(reason="panic"){
+    if(!started) return { started:false, reason };
+    const nodes = [pad, air, pluck, shimmer, reverb, tailGain, tailDelay, tailFilter, airFilter, filter, master, limiter];
+    releaseVoices(reason);
+    try { Tone.Transport?.stop?.(); } catch (_error) {}
+    try {
+      const now = Tone.now();
+      master?.gain?.cancelScheduledValues?.(now);
+      master?.gain?.rampTo?.(0.0001, 0.08);
+    } catch (_error) {}
+
+    started = false;
+    master = filter = airFilter = tailFilter = tailDelay = tailGain = reverb = shimmer = limiter = null;
+    pad = air = pluck = null;
+    window.setTimeout(() => disposeNodes(nodes), 360);
+    return { started:false, reason };
+  }
+
   function numberOr(value, fallback){
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
@@ -292,6 +330,8 @@ window.AudioEngine = (() => {
     setMood,
     setMoodProfile,
     setAuto,
+    releaseVoices,
+    panic,
     get mood(){ return currentMood; },
     get auto(){ return autoOn; },
     get ambientConcept(){ return lastAmbientConcept; },

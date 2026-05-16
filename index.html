@@ -4,6 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Namima</title>
+  <meta name="description" content="Namima: safe ambient water surface for Music SYNC." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png" />
+  <meta name="theme-color" content="#05060a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Namima" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <style>
     html, body { margin:0; padding:0; overflow:hidden; background:#05060a; }
     canvas { display:block; }
@@ -247,9 +257,9 @@
   <!-- Tone.js -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 
-  <script src="./audio.js"></script>
-  <script src="./music-session-adapter.js?v=music-mic-sync-1"></script>
-  <script src="./sketch.js?v=music-mic-sync-1"></script>
+  <script src="./audio.js?v=pwa-1"></script>
+  <script src="./music-session-adapter.js?v=pwa-1"></script>
+  <script src="./sketch.js?v=pwa-1"></script>
   <script>
     (() => {
       const button = document.querySelector("[data-share-link]");
@@ -287,6 +297,15 @@
         }, 4200);
       });
     })();
+  </script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch((error) => {
+          console.warn("[Namima] service worker registration failed", error);
+        });
+      });
+    }
   </script>
 </body>
 </html>

@@ -26,7 +26,7 @@ for (const icon of manifest.icons) {
 const html = text("index.html");
 assert.match(html, /rel="manifest" href="\.\/manifest\.webmanifest"/);
 assert.match(html, /navigator\.serviceWorker\.register\("\.\/sw\.js"\)/);
-for (const asset of ["audio.js?v=stack-2", "music-session-adapter.js?v=stack-2", "sketch.js?v=stack-2"]) {
+for (const asset of ["audio.js?v=stack-3", "music-session-adapter.js?v=stack-3", "sketch.js?v=stack-3"]) {
   assert.ok(html.includes(asset), `missing html asset marker: ${asset}`);
 }
 assert.match(html, /data-share-link/);
@@ -35,8 +35,8 @@ assert.match(html, /OpenClaw/);
 
 const sw = text("sw.js");
 assert.match(sw, /const CACHE_PREFIX = "namima-pwa"/);
-assert.match(sw, /const VERSION = `\$\{CACHE_PREFIX\}-v2`/);
-for (const asset of ["audio.js?v=stack-2", "music-session-adapter.js?v=stack-2", "sketch.js?v=stack-2"]) {
+assert.match(sw, /const VERSION = `\$\{CACHE_PREFIX\}-v3`/);
+for (const asset of ["audio.js?v=stack-3", "music-session-adapter.js?v=stack-3", "sketch.js?v=stack-3"]) {
   assert.ok(sw.includes(`"${asset}"`), `missing sw precache asset: ${asset}`);
 }
 

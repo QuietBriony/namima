@@ -65,6 +65,7 @@ window.NamimaMusicSessionAdapter = (() => {
     const nextAction = object(object(routing.openclaw).next_action);
     const cue = object(hazama.review_cue || nextAction.fm_review_cue);
     const trace = object(hazama.listening_trace);
+    const conversation = hazamaConversation(hazama.conversation);
     return {
       active: hazama.active === true,
       genre: String(trace.current_genre || hazama.genre || "").toLowerCase(),
@@ -73,7 +74,25 @@ window.NamimaMusicSessionAdapter = (() => {
       cue_label: String(cue.short_label || cue.label || "").toLowerCase(),
       next_task: String(cue.next_task || "").toLowerCase(),
       target_repo: String(cue.target_repo || cue.destination || nextAction.destination || "").toLowerCase(),
+      conversation,
       metadata_only: hazama.integration_mode === "metadata-only" || cue.metadata_only !== false
+    };
+  }
+
+  function hazamaConversation(value){
+    const conversation = object(value);
+    const role = String(conversation.role || "");
+    const motif = String(conversation.motif || "");
+    const allowedRoles = ["bass-call", "comp-answer", "drum-comment", "space", "lead-call", "bass-answer", "comp-lift", "recap"];
+    if(!allowedRoles.includes(role)) return null;
+    return {
+      role,
+      motif: ["up-third", "fall-fourth", "neighbor", "octave-skip"].includes(motif) ? motif : "neighbor",
+      bar: Math.max(0, Math.round(Number(conversation.bar) || 0)),
+      densityBias: Number(unit(conversation.densityBias).toFixed(3)),
+      restGate: Number(unit(conversation.restGate).toFixed(3)),
+      metadata_only: conversation.metadata_only !== false,
+      review_only: conversation.review_only !== false
     };
   }
 
@@ -118,6 +137,9 @@ window.NamimaMusicSessionAdapter = (() => {
     }
     if(text.includes("techno balance") || text.includes("drum") || text.includes("funk")) {
       return energy > 0.5 ? "family_room" : "water_day";
+    }
+    if(hazama.conversation?.role === "space" || hazama.conversation?.role === "recap") {
+      return energy < 0.28 ? "soft_sleep" : "transparent_evening";
     }
     return "";
   }

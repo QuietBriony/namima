@@ -62,6 +62,9 @@ Current stack alignment:
 - Hazama FM v172 の `review_cue` は `source_context.hazama_fm` として読み、
   `piano foreground` は透明な evening air、`safe ambient` は water/garden、
   `techno balance` は低刺激な family/water 側へ寄せます。
+- `source_context.hazama_fm.conversation` には Hazama FM v172 の抽象的な
+  8小節会話役割だけを残します。Namimaは「呼ぶ/返す/間を空ける」の空気を
+  読みますが、旋律やコードや音声は受け取りません。
 - Band Room の drum-floor handoff は `source_context.source_surface =
   "band_room"` として診断に残しますが、`routing.namima.enabled = false` の
   ままなら Namima は勝手に mood を採用しません。

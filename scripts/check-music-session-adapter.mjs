@@ -55,11 +55,22 @@ hazamaPianoPacket.performance_state.hazama_fm = {
     target_repo: "chill",
     metadata_only: true
   },
+  conversation: {
+    version: 1,
+    bar: 5,
+    role: "lead-call",
+    motif: "neighbor",
+    densityBias: 0.66,
+    restGate: 0.18,
+    metadata_only: true,
+    review_only: true
+  },
   integration_mode: "metadata-only",
   review_only: true
 };
 assert.equal(adapter.translateMusicSessionPacket(hazamaPianoPacket).mood_id, "transparent_evening", "Hazama piano cue should become transparent evening air");
 assert.equal(adapter.translateMusicSessionPacket(hazamaPianoPacket).source_context.source_surface, "hazama_fm", "Hazama packet should identify hazama_fm");
+assert.equal(adapter.translateMusicSessionPacket(hazamaPianoPacket).source_context.hazama_fm.conversation.role, "lead-call", "Hazama conversation should stay visible in source context");
 
 const bandRoomPacket = structuredClone(basePacket);
 bandRoomPacket.mode = "band_room";

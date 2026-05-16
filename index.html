@@ -162,6 +162,19 @@
     }
     #packetStatus.is-ok{ color:rgba(184,238,205,0.9); }
     #packetStatus.is-error{ color:rgba(255,198,188,0.92); }
+    .share-link-button{
+      position:fixed; top:calc(10px + env(safe-area-inset-top,0px)); right:calc(10px + env(safe-area-inset-right,0px));
+      z-index:20; min-height:30px; border:1px solid rgba(210,235,255,0.24); border-radius:999px;
+      background:rgba(10,18,26,0.42); color:rgba(230,245,255,0.74); font:11px/1 system-ui,-apple-system,Segoe UI,sans-serif;
+      letter-spacing:0.08em; padding:0 9px; cursor:pointer; opacity:0.66; backdrop-filter:blur(8px);
+    }
+    .share-link-button:hover,.share-link-button:focus-visible{ opacity:1; }
+    .share-link-status{
+      position:fixed; top:calc(48px + env(safe-area-inset-top,0px)); right:calc(10px + env(safe-area-inset-right,0px));
+      z-index:20; max-width:min(320px,calc(100vw - 20px)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      border:1px solid rgba(210,235,255,0.16); border-radius:999px; background:rgba(10,18,26,0.62);
+      color:rgba(230,245,255,0.68); font:10px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; padding:7px 9px; backdrop-filter:blur(8px);
+    }
     @media (max-width: 680px){
       #packetPanel{
         left:8px; right:8px; top:8px;
@@ -181,6 +194,8 @@
   </style>
 </head>
 <body>
+  <button class="share-link-button" type="button" data-share-link aria-label="Share or copy this page URL">URL</button>
+  <span class="share-link-status" data-share-link-status hidden></span>
   <div id="startOverlay">
     <div class="box">
       <div class="start-title">Tap to start</div>
@@ -235,5 +250,43 @@
   <script src="./audio.js"></script>
   <script src="./music-session-adapter.js?v=music-mic-sync-1"></script>
   <script src="./sketch.js?v=music-mic-sync-1"></script>
+  <script>
+    (() => {
+      const button = document.querySelector("[data-share-link]");
+      const status = document.querySelector("[data-share-link-status]");
+      if (!button) return;
+      const label = button.textContent;
+      const showUrl = (url) => {
+        button.title = url;
+        if (status) {
+          status.hidden = false;
+          status.textContent = url;
+        }
+      };
+      const copyUrl = async (url) => {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+          return true;
+        }
+        return false;
+      };
+      button.addEventListener("click", async () => {
+        const url = window.location.href;
+        showUrl(url);
+        try {
+          if (navigator.share) await navigator.share({ title: document.title || "Namima", url });
+          else if (!(await copyUrl(url))) window.prompt("Copy URL", url);
+          button.textContent = "copied";
+        } catch (error) {
+          if (error?.name !== "AbortError") window.prompt("Copy URL", url);
+        }
+        window.clearTimeout(button._shareLinkTimer);
+        button._shareLinkTimer = window.setTimeout(() => {
+          button.textContent = label;
+          if (status) status.hidden = true;
+        }, 4200);
+      });
+    })();
+  </script>
 </body>
 </html>

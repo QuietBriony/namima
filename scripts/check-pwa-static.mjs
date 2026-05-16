@@ -47,6 +47,30 @@ for (const [, url] of precacheBlock[1].matchAll(/"([^"]+)"/g)) {
   assert.ok(exists(url.split("?")[0]), `missing precache target: ${url}`);
 }
 
+// sw.js carries two cache identifiers that must move in lockstep (see
+// AGENTS.md "Cache buster discipline"): the VERSION suffix (namima-pwa-vN)
+// and the asset cache-buster query (?v=stack-M). If bumped separately they
+// drift and serve stale assets, so assert N === M loudly here.
+const versionMatch = sw.match(/const VERSION = `\$\{CACHE_PREFIX\}-v(\d+)`/);
+assert.ok(versionMatch, "missing VERSION declaration in sw.js");
+const versionNumber = Number(versionMatch[1]);
+const bustNumbers = new Set(
+  [...sw.matchAll(/\?v=stack-(\d+)/g)].map(([, n]) => Number(n))
+);
+assert.ok(bustNumbers.size > 0, "missing ?v=stack-N cache-buster in sw.js");
+assert.equal(
+  bustNumbers.size,
+  1,
+  `inconsistent ?v=stack-N values in sw.js: ${[...bustNumbers].join(", ")}`
+);
+const bustNumber = [...bustNumbers][0];
+assert.equal(
+  versionNumber,
+  bustNumber,
+  `sw.js cache identifiers drifted: VERSION is namima-pwa-v${versionNumber} ` +
+    `but assets use ?v=stack-${bustNumber} — bump both to the same number`
+);
+
 const audio = text("audio.js");
 const sketch = text("sketch.js");
 assert.match(audio, /panic/);

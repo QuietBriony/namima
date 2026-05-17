@@ -17,6 +17,7 @@ tap the surface only when you want audio to start.
 Checks:
 
 ```powershell
+node scripts/check-mood-profiles.mjs
 node scripts/check-music-session-adapter.mjs
 node scripts/check-pwa-static.mjs
 ```

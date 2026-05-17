@@ -4,7 +4,7 @@
 
 Namima is the active Public-Friendly Ambient Player in the music stack.
 
-This roadmap translates useful ideas from the local `github-inventory/music-stack`
+This roadmap translates useful ideas from the local `music-stack`
 repos into namima-safe growth work. It does not make namima a light version of
 Music, and it does not reopen namima-lab as the active runtime.
 

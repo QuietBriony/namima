@@ -234,6 +234,79 @@
 <body>
   <button class="share-link-button" type="button" data-share-link aria-label="Share or copy this page URL">URL</button>
   <span class="share-link-status" data-share-link-status hidden></span>
+
+  <!-- PWA install hint (rolled out from Music v206). Hidden when running
+       standalone or after dismissal (per-origin localStorage). PWA install
+       gives noticeably less BG-tab throttling = more stable BG playback. -->
+  <style>
+    .install-hint { position: fixed; top: max(8px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 1100; max-width: min(92vw, 540px); padding: 4px 6px 4px 10px; background: rgba(8,18,28,0.78); border: 1px solid rgba(180,200,230,0.22); border-radius: 999px; color: rgba(230,240,250,0.92); font: 11px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing: 0.04em; backdrop-filter: blur(8px); display: flex; align-items: center; gap: 6px; }
+    .install-hint[hidden] { display: none; }
+    .install-hint__toggle, .install-hint__action, .install-hint__dismiss { background: transparent; border: 1px solid rgba(180,200,230,0.28); border-radius: 999px; color: inherit; font: inherit; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+    .install-hint__toggle { border: none; padding: 3px 4px; }
+    .install-hint__action { background: rgba(120,200,220,0.16); }
+    .install-hint__dismiss { padding: 2px 8px; font-size: 13px; line-height: 1; }
+    .install-hint__details { position: absolute; top: calc(100% + 6px); left: 0; right: 0; padding: 8px 14px; background: rgba(8,18,28,0.92); border: 1px solid rgba(180,200,230,0.22); border-radius: 8px; font: 11px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing: 0.04em; backdrop-filter: blur(8px); }
+    .install-hint__details[hidden] { display: none; }
+    .install-hint__details p { margin: 2px 0; }
+  </style>
+  <div id="install-hint" class="install-hint" hidden>
+    <button id="install-hint-toggle" class="install-hint__toggle" type="button" aria-expanded="false">📲 PWA推奨：バックグラウンド再生が安定</button>
+    <button id="install-hint-action" class="install-hint__action" type="button" hidden>インストール</button>
+    <button id="install-hint-dismiss" class="install-hint__dismiss" type="button" aria-label="閉じる">×</button>
+    <div id="install-hint-details" class="install-hint__details" hidden>
+      <p><b>iOS Safari</b> ＝ 共有 → ホーム画面に追加</p>
+      <p><b>Android Chrome</b> ＝ 右上 ⋮ → アプリをインストール</p>
+      <p><b>PC Chrome / Edge</b> ＝ アドレスバー右の「インストール」アイコン</p>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const hint = document.getElementById("install-hint");
+    if (!hint) return;
+    const inStandalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
+      || window.navigator.standalone === true;
+    if (inStandalone) { hint.hidden = true; return; }
+    try {
+      if (localStorage.getItem("musicStackInstallHintDismissed") === "1") { hint.hidden = true; return; }
+    } catch (e) {}
+    hint.hidden = false;
+    let deferredInstallPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      const action = document.getElementById("install-hint-action");
+      if (action) action.hidden = false;
+    });
+    window.addEventListener("appinstalled", () => { deferredInstallPrompt = null; hint.hidden = true; });
+    const toggle = document.getElementById("install-hint-toggle");
+    const details = document.getElementById("install-hint-details");
+    if (toggle && details) {
+      toggle.addEventListener("click", () => {
+        const willShow = details.hidden;
+        details.hidden = !willShow;
+        toggle.setAttribute("aria-expanded", String(willShow));
+      });
+    }
+    const action = document.getElementById("install-hint-action");
+    if (action) {
+      action.addEventListener("click", async () => {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        try { await deferredInstallPrompt.userChoice; } catch (e) {}
+        deferredInstallPrompt = null;
+        hint.hidden = true;
+      });
+    }
+    const dismiss = document.getElementById("install-hint-dismiss");
+    if (dismiss) {
+      dismiss.addEventListener("click", () => {
+        try { localStorage.setItem("musicStackInstallHintDismissed", "1"); } catch (e) {}
+        hint.hidden = true;
+      });
+    }
+  })();
+  </script>
+
   <div id="startOverlay">
     <div class="box">
       <div class="start-title">Tap to start</div>
@@ -292,9 +365,9 @@
   <!-- Tone.js -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 
-  <script src="./audio.js?v=stack-3"></script>
-  <script src="./music-session-adapter.js?v=stack-3"></script>
-  <script src="./sketch.js?v=stack-3"></script>
+  <script src="./audio.js?v=stack-4"></script>
+  <script src="./music-session-adapter.js?v=stack-4"></script>
+  <script src="./sketch.js?v=stack-4"></script>
   <script>
     (() => {
       const button = document.querySelector("[data-share-link]");

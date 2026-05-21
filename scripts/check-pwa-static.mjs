@@ -26,7 +26,7 @@ for (const icon of manifest.icons) {
 const html = text("index.html");
 assert.match(html, /rel="manifest" href="\.\/manifest\.webmanifest"/);
 assert.match(html, /navigator\.serviceWorker\.register\("\.\/sw\.js"\)/);
-for (const asset of ["audio.js?v=stack-3", "music-session-adapter.js?v=stack-3", "sketch.js?v=stack-3"]) {
+for (const asset of ["audio.js?v=stack-4", "music-session-adapter.js?v=stack-4", "sketch.js?v=stack-4"]) {
   assert.ok(html.includes(asset), `missing html asset marker: ${asset}`);
 }
 assert.match(html, /data-share-link/);
@@ -35,8 +35,10 @@ assert.match(html, /OpenClaw/);
 
 const sw = text("sw.js");
 assert.match(sw, /const CACHE_PREFIX = "namima-pwa"/);
-assert.match(sw, /const VERSION = `\$\{CACHE_PREFIX\}-v3`/);
-for (const asset of ["audio.js?v=stack-3", "music-session-adapter.js?v=stack-3", "sketch.js?v=stack-3"]) {
+// Per BL-011 / openclaw precedent: pattern-only, no hardcoded number — the
+// flexible drift check below catches actual version-cache drift.
+assert.match(sw, /const VERSION = `\$\{CACHE_PREFIX\}-v\d+`/);
+for (const asset of ["audio.js?v=stack-4", "music-session-adapter.js?v=stack-4", "sketch.js?v=stack-4"]) {
   assert.ok(sw.includes(`"${asset}"`), `missing sw precache asset: ${asset}`);
 }
 

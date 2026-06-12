@@ -10,21 +10,46 @@ window.AudioEngine = (() => {
   let currentProfileShape = null;
   let lastAmbientConcept = null;
 
-  // 潮 (tide): 音名プールが数分周期でゆっくり入れ替わる。前半=満ち (home)、
-  // 後半=引き (away)。切り替えは次の tap から効くだけなので事件としては鳴らない。
-  const TIDE_POOLS = Object.freeze([
-    Object.freeze(["C", "D", "Eb", "G", "Ab"]),
-    Object.freeze(["C", "Eb", "F", "G", "Bb"]),
+  // 潮 (tide) v2: home → deep → bright の 3 区間を ~3.2 分で一巡。区間ごとに
+  // 音名プールだけでなく音場 (filter / reverb / tail) も傾き、変わり目には
+  // 淡い告知和音が一度鳴る — v1「あまり変化ない」への増幅。
+  const TIDE_SECTIONS = Object.freeze([
+    Object.freeze({ name: "home",   pool: Object.freeze(["C", "D", "Eb", "G", "Ab"]), filt: 1.0,  verb: 1.0,  tail: 1.0  }),
+    Object.freeze({ name: "deep",   pool: Object.freeze(["C", "Eb", "F", "G", "Bb"]), filt: 0.86, verb: 1.14, tail: 0.92 }),
+    Object.freeze({ name: "bright", pool: Object.freeze(["C", "D", "F", "G", "A"]),   filt: 1.16, verb: 0.92, tail: 1.12 }),
   ]);
-  const TIDE_PERIOD_MS = 224000;
-  const TIDE_HOME_RATIO = 0.62;
+  const TIDE_PERIOD_MS = 192000;
 
   function tidePhase(){
     return (Date.now() % TIDE_PERIOD_MS) / TIDE_PERIOD_MS;
   }
 
+  function tideSection(){
+    const phase = tidePhase();
+    return TIDE_SECTIONS[phase < 0.5 ? 0 : phase < 0.75 ? 1 : 2];
+  }
+
   function tideScale(){
-    return TIDE_POOLS[tidePhase() < TIDE_HOME_RATIO ? 0 : 1];
+    return tideSection().pool;
+  }
+
+  let lastTideName = null;
+
+  // 区間が変わって最初の便で一度だけ、その潮のトライアドを淡く告知する。
+  function announceTideTurn(){
+    const section = tideSection();
+    if(lastTideName === section.name) return;
+    const wasFirst = lastTideName === null;
+    lastTideName = section.name;
+    if(wasFirst || !started) return;
+    try {
+      const now = Tone.now();
+      const p = section.pool;
+      pad.triggerAttackRelease([`${p[0]}3`, `${p[3]}3`, `${p[4]}3`], 5.5, now + 0.05, 0.055);
+      air.triggerAttackRelease([`${p[0]}4`, `${p[4]}4`], 7, now + 0.4, 0.028);
+    } catch (error) {
+      console.warn("[Namima] tide announce failed", error);
+    }
   }
   const MOOD_AUDIO = Object.freeze({
     water_day: {
@@ -261,10 +286,12 @@ window.AudioEngine = (() => {
       resonance: 0.92
     }).connect(filter);
 
-    // 起動音（小さく）
+    // 起動音（小さく・その時の潮のトライアド）
     const now = Tone.now();
-    pad.triggerAttackRelease(["C3","G3","Ab3"], 3.5, now, 0.10);
-    air.triggerAttackRelease(["C4","G4","Ab4"], 5.5, now + 0.05, 0.035);
+    const p = tideScale();
+    lastTideName = tideSection().name;
+    pad.triggerAttackRelease([`${p[0]}3`, `${p[3]}3`, `${p[4]}3`], 3.5, now, 0.10);
+    air.triggerAttackRelease([`${p[0]}4`, `${p[3]}4`, `${p[4]}4`], 5.5, now + 0.05, 0.035);
     applyMood(0.05);
 
     started = true;
@@ -273,6 +300,7 @@ window.AudioEngine = (() => {
 
   function onTap(xNorm, intensity=0.6, conceptInput=null){
     if(!started) return;
+    announceTideTurn();
 
     const now = Tone.now();
     const dt = now - lastTapTime;
@@ -305,10 +333,11 @@ window.AudioEngine = (() => {
   function applyMood(ramp=0.6){
     if(!started) return;
     const shape = moodAudio();
-    filter.frequency.rampTo(shape.filterBase + shape.filterRange * 0.18, ramp);
+    const tide = tideSection();
+    filter.frequency.rampTo((shape.filterBase + shape.filterRange * 0.18) * tide.filt, ramp);
     airFilter.frequency.rampTo(shape.airBase, ramp);
-    tailFilter.frequency.rampTo(shape.tailCutoff ?? 1450, ramp);
-    reverb.wet.rampTo(shape.reverbWet, ramp);
+    tailFilter.frequency.rampTo((shape.tailCutoff ?? 1450) * tide.tail, ramp);
+    reverb.wet.rampTo(Math.min(0.40, shape.reverbWet * tide.verb), ramp);
     shimmer.wet.rampTo(shape.shimmerWet, ramp);
     tailDelay.wet.rampTo(shape.tailWet ?? 0.06, ramp);
     tailDelay.feedback.value = Math.min(0.24, 0.11 + (shape.tailWet ?? 0.06) * 0.85);
@@ -338,15 +367,17 @@ window.AudioEngine = (() => {
 
   function updateEnergy(input){
     if(!started) return;
+    announceTideTurn();
     const concept = normalizeAmbientConcept(input, 0);
     lastAmbientConcept = concept;
     const shape = moodAudio();
     const autoLift = autoOn ? 0.03 : 0;
+    const tide = tideSection();
 
-    filter.frequency.rampTo(shape.filterBase + concept.water_shimmer * shape.filterRange * 0.86, 0.16);
+    filter.frequency.rampTo((shape.filterBase + concept.water_shimmer * shape.filterRange * 0.86) * tide.filt, 0.16);
     airFilter.frequency.rampTo(shape.airBase + concept.air_lift * 360, 0.18);
-    tailFilter.frequency.rampTo((shape.tailCutoff ?? 1450) + concept.water_shimmer * 260 + concept.air_lift * 120, 0.22);
-    reverb.wet.rampTo(Math.min(0.40, shape.reverbWet + concept.air_lift * 0.11 + autoLift), 0.22);
+    tailFilter.frequency.rampTo(((shape.tailCutoff ?? 1450) + concept.water_shimmer * 260 + concept.air_lift * 120) * tide.tail, 0.22);
+    reverb.wet.rampTo(Math.min(0.40, (shape.reverbWet + concept.air_lift * 0.11 + autoLift) * tide.verb), 0.22);
     shimmer.wet.rampTo(Math.min(0.21, shape.shimmerWet + concept.water_shimmer * 0.09), 0.22);
     tailDelay.wet.rampTo(Math.min(0.16, (shape.tailWet ?? 0.06) + concept.soft_pulse_visibility * 0.028), 0.22);
     tailGain.gain.rampTo(Math.min(0.135, (shape.tailGain ?? 0.09) + concept.soft_pulse_visibility * 0.018), 0.22);
@@ -364,7 +395,7 @@ window.AudioEngine = (() => {
     panic,
     get mood(){ return currentMood; },
     get auto(){ return autoOn; },
-    get tide(){ return { phase: Number(tidePhase().toFixed(3)), pool: tideScale().slice() }; },
+    get tide(){ const s = tideSection(); return { phase: Number(tidePhase().toFixed(3)), section: s.name, pool: s.pool.slice() }; },
     get ambientConcept(){ return lastAmbientConcept; },
     get started(){ return started; }
   };

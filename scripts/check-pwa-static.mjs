@@ -26,8 +26,14 @@ for (const icon of manifest.icons) {
 const html = text("index.html");
 assert.match(html, /rel="manifest" href="\.\/manifest\.webmanifest"/);
 assert.match(html, /navigator\.serviceWorker\.register\("\.\/sw\.js"\)/);
-for (const asset of ["audio.js?v=stack-4", "music-session-adapter.js?v=stack-4", "sketch.js?v=stack-4"]) {
-  assert.ok(html.includes(asset), `missing html asset marker: ${asset}`);
+// Per BL-011 / openclaw precedent: pattern-only, no hardcoded number — the
+// html<->sw lockstep check below catches actual version drift.
+for (const asset of ["audio.js", "music-session-adapter.js", "sketch.js"]) {
+  assert.match(
+    html,
+    new RegExp(`${asset.replace(/\./g, "\\.")}\\?v=stack-\\d+`),
+    `missing html asset marker: ${asset}?v=stack-N`
+  );
 }
 assert.match(html, /data-share-link/);
 assert.match(html, /Hazama FM/);
@@ -38,8 +44,12 @@ assert.match(sw, /const CACHE_PREFIX = "namima-pwa"/);
 // Per BL-011 / openclaw precedent: pattern-only, no hardcoded number — the
 // flexible drift check below catches actual version-cache drift.
 assert.match(sw, /const VERSION = `\$\{CACHE_PREFIX\}-v\d+`/);
-for (const asset of ["audio.js?v=stack-4", "music-session-adapter.js?v=stack-4", "sketch.js?v=stack-4"]) {
-  assert.ok(sw.includes(`"${asset}"`), `missing sw precache asset: ${asset}`);
+for (const asset of ["audio.js", "music-session-adapter.js", "sketch.js"]) {
+  assert.match(
+    sw,
+    new RegExp(`"${asset.replace(/\./g, "\\.")}\\?v=stack-\\d+"`),
+    `missing sw precache asset: ${asset}?v=stack-N`
+  );
 }
 
 const precacheBlock = sw.match(/const PRECACHE_URLS = \[([\s\S]*?)\];/);
@@ -71,6 +81,23 @@ assert.equal(
   bustNumber,
   `sw.js cache identifiers drifted: VERSION is namima-pwa-v${versionNumber} ` +
     `but assets use ?v=stack-${bustNumber} — bump both to the same number`
+);
+
+// index.html must carry the same ?v=stack-N as sw.js, or the precache and the
+// page load different copies of the same asset.
+const htmlBustNumbers = new Set(
+  [...html.matchAll(/\?v=stack-(\d+)/g)].map(([, n]) => Number(n))
+);
+assert.equal(
+  htmlBustNumbers.size,
+  1,
+  `inconsistent ?v=stack-N values in index.html: ${[...htmlBustNumbers].join(", ")}`
+);
+assert.equal(
+  [...htmlBustNumbers][0],
+  bustNumber,
+  `index.html and sw.js cache busters drifted: html ?v=stack-${[...htmlBustNumbers][0]} ` +
+    `vs sw ?v=stack-${bustNumber} — bump both to the same number`
 );
 
 const audio = text("audio.js");

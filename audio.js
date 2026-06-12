@@ -10,7 +10,22 @@ window.AudioEngine = (() => {
   let currentProfileShape = null;
   let lastAmbientConcept = null;
 
-  const scale = ["C", "D", "Eb", "G", "Ab"];
+  // 潮 (tide): 音名プールが数分周期でゆっくり入れ替わる。前半=満ち (home)、
+  // 後半=引き (away)。切り替えは次の tap から効くだけなので事件としては鳴らない。
+  const TIDE_POOLS = Object.freeze([
+    Object.freeze(["C", "D", "Eb", "G", "Ab"]),
+    Object.freeze(["C", "Eb", "F", "G", "Bb"]),
+  ]);
+  const TIDE_PERIOD_MS = 224000;
+  const TIDE_HOME_RATIO = 0.62;
+
+  function tidePhase(){
+    return (Date.now() % TIDE_PERIOD_MS) / TIDE_PERIOD_MS;
+  }
+
+  function tideScale(){
+    return TIDE_POOLS[tidePhase() < TIDE_HOME_RATIO ? 0 : 1];
+  }
   const MOOD_AUDIO = Object.freeze({
     water_day: {
       gain: 0.72, filterBase: 620, filterRange: 2800, airBase: 320,
@@ -178,9 +193,20 @@ window.AudioEngine = (() => {
   }
 
   function noteFromX(xNorm){
+    const pool = tideScale();
     const octave = 3 + Math.floor(xNorm * 3); // 3..5
-    const idx = Math.floor(xNorm * scale.length) % scale.length;
-    return `${scale[idx]}${octave}`;
+    const idx = Math.floor(xNorm * pool.length) % pool.length;
+    return `${pool[idx]}${octave}`;
+  }
+
+  // 相方ノート: 同じ位置から scale を stepUp 度ぶん上る。旧実装の
+  // (x + 0.17) % 1 は wrap 時に register が飛んで dyad が他人になっていた。
+  function companionNote(xNorm, stepUp){
+    const pool = tideScale();
+    const octave = 3 + Math.floor(xNorm * 3);
+    const idx = Math.floor(xNorm * pool.length) % pool.length;
+    const lifted = idx + stepUp;
+    return `${pool[lifted % pool.length]}${Math.min(5, octave + Math.floor(lifted / pool.length))}`;
   }
 
   async function start(){
@@ -195,7 +221,11 @@ window.AudioEngine = (() => {
     filter  = new Tone.Filter({ type:"lowpass", frequency: 900, Q: 0.6 });
     airFilter = new Tone.Filter({ type:"highpass", frequency: 360, Q: 0.5 });
     tailFilter = new Tone.Filter({ type:"lowpass", frequency: 1450, Q: 0.45 });
-    tailDelay = new Tone.FeedbackDelay({ delayTime: "4n", feedback: 0.14, wet: 0.06 });
+    // PingPong は tail の echo 成分だけを L/R に振る (水面の反射)。
+    // Tone build に無ければ従来のモノ delay へ fallback。
+    tailDelay = typeof Tone.PingPongDelay === "function"
+      ? new Tone.PingPongDelay({ delayTime: "4n", feedback: 0.14, wet: 0.06 })
+      : new Tone.FeedbackDelay({ delayTime: "4n", feedback: 0.14, wet: 0.06 });
     tailGain = new Tone.Gain(0.09);
     reverb  = new Tone.Reverb({ decay: 6.5, preDelay: 0.01, wet: 0.22 });
     shimmer = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.20, wet: 0.05 });
@@ -262,12 +292,12 @@ window.AudioEngine = (() => {
     }
 
     if(dt > 0.18 && Math.random() < padChance){
-      const n2 = noteFromX((clamp01(xNorm) + 0.17) % 1);
+      const n2 = companionNote(clamp01(xNorm), 2);
       pad.triggerAttackRelease([n, n2], 1.2 + concept.fade_back_time * 0.36, now + 0.02, vel * 0.12);
     }
 
     if(Math.random() < airChance){
-      const n2 = noteFromX((clamp01(xNorm) + 0.2) % 1);
+      const n2 = companionNote(clamp01(xNorm), 3);
       air.triggerAttackRelease([n, n2], 2.2 + concept.fade_back_time * 0.72, now + 0.02, vel * 0.14);
     }
   }
@@ -334,6 +364,7 @@ window.AudioEngine = (() => {
     panic,
     get mood(){ return currentMood; },
     get auto(){ return autoOn; },
+    get tide(){ return { phase: Number(tidePhase().toFixed(3)), pool: tideScale().slice() }; },
     get ambientConcept(){ return lastAmbientConcept; },
     get started(){ return started; }
   };

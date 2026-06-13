@@ -10,6 +10,13 @@ window.AudioEngine = (() => {
   let currentProfileShape = null;
   let lastAmbientConcept = null;
 
+  // 自走する優しい声 (bloom): namima の役割「soft continuous listening」。
+  let bloomOn = true;       // start 後、タップ無しでも穏やかに鳴り続ける
+  let bloomTimer = null;
+  let bloomX = 0.42;        // 音名 / レジスタ位置。隣へ歩く小旋律 (= ランダム回避)
+  let bloomDir = 1;         // 歩く向き (端で反転)
+  let bloomCount = 0;
+
   // 潮 (tide) v2: home → deep → bright の 3 区間を ~3.2 分で一巡。区間ごとに
   // 音名プールだけでなく音場 (filter / reverb / tail) も傾き、変わり目には
   // 淡い告知和音が一度鳴る — v1「あまり変化ない」への増幅。
@@ -112,6 +119,7 @@ window.AudioEngine = (() => {
   }
 
   function panic(reason="panic"){
+    stopBloom();
     if(!started) return { started:false, reason };
     const nodes = [pad, air, pluck, shimmer, reverb, tailGain, tailDelay, tailFilter, airFilter, filter, master, limiter];
     releaseVoices(reason);
@@ -234,6 +242,74 @@ window.AudioEngine = (() => {
     return `${pool[lifted % pool.length]}${Math.min(5, octave + Math.floor(lifted / pool.length))}`;
   }
 
+  // 自走する優しい声。pitch は隣へ歩く小旋律で潮プールから採り、family-safe な
+  // 小音量。人間がタップ中 (直近 ~5s) は身を引き、静かになると戻る。
+  function bloomIntervalMs(){
+    const shape = moodAudio();
+    // 活気 (tapScale) が高い mood ほどやや忙しく、sleep 系はゆったり。
+    const base = 5200 - shape.tapScale * 2200;   // ~3.0s..4.9s
+    return base + Math.random() * 1600;          // + ゆらぎ
+  }
+
+  function stepBloomX(){
+    // 下降グラビティ付きの小さなランダムウォーク。端で反転。
+    const stride = 0.12 + Math.random() * 0.1;
+    bloomX += bloomDir * stride - 0.03;          // 軽い下降バイアス
+    if(bloomX > 0.96){ bloomX = 0.96; bloomDir = -1; }
+    if(bloomX < 0.06){ bloomX = 0.06; bloomDir = 1; }
+    return clamp01(bloomX);
+  }
+
+  function emitBloom(){
+    if(!started || !pad) return;
+    const shape = moodAudio();
+    const now = Tone.now();
+    const sinceTap = now - lastTapTime;
+    // 人間がタップ中は自走を控える。完全には消さず確率で間引く。
+    if(sinceTap < 5 && Math.random() > 0.2) return;
+
+    const x = stepBloomX();
+    const n = noteFromX(x);
+    const baseVel = 0.05 + shape.tapScale * 0.05; // ~0.05..0.1 (family-safe)
+    bloomCount += 1;
+
+    // 主音: 柔らかい pad sine (filter + reverb 経由)。
+    pad.triggerAttackRelease(n, 2.0 + shape.tapScale * 1.2, now, baseVel * 0.9);
+
+    // 4 音に 1 回、companion で淡い dyad (倍音の広がり)。
+    if(bloomCount % 4 === 0){
+      const n2 = companionNote(x, 2);
+      air.triggerAttackRelease([n, n2], 3.4, now + 0.18, baseVel * 0.5);
+    }
+
+    // たまに pluck の「ピロ」を一粒。sleep 系の静けさでは出さない。
+    if(shape.tapScale > 0.5 && Math.random() < 0.34){
+      pluck.triggerAttackRelease(companionNote(x, 1), 0.3, now + 0.12, baseVel * 0.7);
+    }
+  }
+
+  function stopBloom(){
+    window.clearTimeout(bloomTimer);
+    bloomTimer = null;
+  }
+
+  function scheduleBloom(){
+    stopBloom();
+    if(!started || !bloomOn) return;
+    bloomTimer = window.setTimeout(() => {
+      try { emitBloom(); }
+      catch(error){ console.warn("[Namima] bloom failed", error); }
+      scheduleBloom();
+    }, bloomIntervalMs());
+  }
+
+  function setBloom(enabled){
+    bloomOn = Boolean(enabled);
+    if(bloomOn && started) scheduleBloom();
+    else stopBloom();
+    return bloomOn;
+  }
+
   async function start(){
     if(started) return;
 
@@ -296,6 +372,7 @@ window.AudioEngine = (() => {
 
     started = true;
     console.log("Tone started");
+    scheduleBloom();
   }
 
   function onTap(xNorm, intensity=0.6, conceptInput=null){
@@ -391,10 +468,13 @@ window.AudioEngine = (() => {
     setMood,
     setMoodProfile,
     setAuto,
+    setBloom,
     releaseVoices,
     panic,
     get mood(){ return currentMood; },
     get auto(){ return autoOn; },
+    get bloomOn(){ return bloomOn; },
+    get bloom(){ return { on: bloomOn, x: Number(bloomX.toFixed(3)), scheduled: bloomTimer !== null }; },
     get tide(){ const s = tideSection(); return { phase: Number(tidePhase().toFixed(3)), section: s.name, pool: s.pool.slice() }; },
     get ambientConcept(){ return lastAmbientConcept; },
     get started(){ return started; }

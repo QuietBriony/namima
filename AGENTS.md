@@ -67,7 +67,7 @@ node scripts/check-pwa-static.mjs
 ## Cache buster discipline
 
 `sw.js` の cache version 変数は `VERSION`（`CACHE_PREFIX = "namima-pwa"` +
-`-vN`、現在 `namima-pwa-v7`）。runtime asset は `?v=stack-N` 形式。
+`-vN`、現在 `namima-pwa-v8`）。runtime asset は `?v=stack-N` 形式。
 
 UI / runtime（`index.html` / `sketch.js` / `audio.js` /
 `music-session-adapter.js`）を変えたら **2 箇所を同期 bump**:

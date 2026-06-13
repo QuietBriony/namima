@@ -16,6 +16,7 @@ window.AudioEngine = (() => {
   let bloomX = 0.42;        // 音名 / レジスタ位置。隣へ歩く小旋律 (= ランダム回避)
   let bloomDir = 1;         // 歩く向き (端で反転)
   let bloomCount = 0;
+  let bloomListener = null; // 視覚連動: bloom 発火を sketch へ通知 (音高 x)
 
   // 潮 (tide) v2: home → deep → bright の 3 区間を ~3.2 分で一巡。区間ごとに
   // 音名プールだけでなく音場 (filter / reverb / tail) も傾き、変わり目には
@@ -276,6 +277,12 @@ window.AudioEngine = (() => {
     // 主音: 柔らかい pad sine (filter + reverb 経由)。
     pad.triggerAttackRelease(n, 2.0 + shape.tapScale * 1.2, now, baseVel * 0.9);
 
+    // 視覚連動: 鳴ったその瞬間、音高 x を sketch へ渡して水面を揺らす。
+    if(bloomListener){
+      try { bloomListener(x); }
+      catch(error){ console.warn("[Namima] bloom listener failed", error); }
+    }
+
     // 4 音に 1 回、companion で淡い dyad (倍音の広がり)。
     if(bloomCount % 4 === 0){
       const n2 = companionNote(x, 2);
@@ -469,6 +476,7 @@ window.AudioEngine = (() => {
     setMoodProfile,
     setAuto,
     setBloom,
+    setBloomListener(fn){ bloomListener = typeof fn === "function" ? fn : null; },
     releaseVoices,
     panic,
     get mood(){ return currentMood; },

@@ -11,8 +11,11 @@ Use it:
 python -m http.server
 ```
 
-Then open `index.html`, press `Music SYNC` if you want to inspect a packet, and
-tap the surface only when you want audio to start.
+Then open `index.html` and tap the surface to start audio (it never auto-starts).
+After the first tap it self-plays: a gentle "bloom" voice keeps drawing soft notes
+from the current tide pool, and the tide slowly breathes between home / deep /
+bright moods over a few minutes. Your taps add ripples on top — the bloom recedes
+while you play and returns when you go quiet. Press `Music SYNC` to inspect a packet.
 
 Checks:
 

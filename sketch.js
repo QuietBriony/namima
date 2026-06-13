@@ -422,6 +422,21 @@ function setup(){
   setupTraceRecorder();
   updateControlUi();
   loadMoodProfiles();
+
+  // audio の自走 bloom と水面を同期させる (鳴った瞬間にさざ波)。
+  if(window.AudioEngine && typeof window.AudioEngine.setBloomListener === "function"){
+    window.AudioEngine.setBloomListener(spawnBloomRipple);
+  }
+}
+
+// 自走 bloom が鳴った瞬間に呼ばれる。タップ (0.55) より淡いさざ波を、
+// 音高 (xNorm) に対応した水平位置へ。低音=左 / 高音=右で音と画が同期。
+function spawnBloomRipple(xNorm){
+  if(!started) return;
+  const sx = constrain(xNorm, 0, 1) * width;
+  const sy = height * (0.3 + Math.random() * 0.4);
+  addSource(sx, sy, 0.3);
+  if(visualMode === "orbit") nudgeOrbit(sx, sy, 0.2);
 }
 
 async function startAudio(){

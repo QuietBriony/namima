@@ -7,7 +7,7 @@
 ========================================================= */
 
 const CACHE_PREFIX = "namima-pwa";
-const VERSION = `${CACHE_PREFIX}-v7`;
+const VERSION = `${CACHE_PREFIX}-v8`;
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const SCOPE_URL = new URL(self.registration.scope);
@@ -15,9 +15,9 @@ const SCOPE_URL = new URL(self.registration.scope);
 const PRECACHE_URLS = [
   "./",
   "index.html",
-  "audio.js?v=stack-7",
-  "music-session-adapter.js?v=stack-7",
-  "sketch.js?v=stack-7",
+  "audio.js?v=stack-8",
+  "music-session-adapter.js?v=stack-8",
+  "sketch.js?v=stack-8",
   "manifest.webmanifest",
   "profiles/mood-profiles.json",
   "exports/namima-shape-ambient.json",

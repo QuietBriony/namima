@@ -360,6 +360,13 @@
     </details>
   </section>
 
+  <!-- perf: warm the CDN socket so the eager p5 + Tone downloads start their
+       DNS/TLS earlier (plain <script> = no-cors, so no crossorigin). NOTE: the
+       scripts are deliberately NOT deferred — p5 runs in global mode and its
+       setup()/draw() loop does not start reliably when p5.min.js is deferred
+       (verified: canvas builds but frameCount stays 0). Preconnect is the safe
+       win here; the defer reorder is left out on purpose. -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <!-- p5.js -->
   <script src="https://cdn.jsdelivr.net/npm/p5@1.9.3/lib/p5.min.js"></script>
   <!-- Tone.js -->

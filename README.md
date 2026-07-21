@@ -26,3 +26,19 @@ node scripts/check-pwa-static.mjs
 ```
 
 More detail: [docs/README.md](docs/README.md)
+
+## Offline frequency renderer (candidate)
+
+A separate, offline Python renderer for frequency-based ambient sources
+(128 Hz / solfeggio / binaural → 48 kHz / 24-bit WAV). It is a **candidate**
+subsystem: not wired into the runtime above, generated audio is never committed,
+and its numpy/scipy deps are **pending human approval** (namima rule 6).
+
+Spec + presets: [SKILL.md](SKILL.md) / [presets.yaml](presets.yaml). Code in
+`src/namima/`, tests in `tests/`.
+
+```bash
+pip install -r requirements.txt
+PYTHONPATH=src python -m namima.generator --preset c3_128 --smoke --out drone.wav
+PYTHONPATH=src python -m pytest tests/     # or: python tests/test_generator.py
+```

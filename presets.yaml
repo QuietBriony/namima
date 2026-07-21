@@ -1,0 +1,48 @@
+# namima — frequency preset table (candidate)
+#
+# SINGLE SOURCE OF TRUTH for the offline ambient renderer's frequency data.
+# Kept in sync with SKILL.md §"Frequency presets". The smoke test asserts the
+# two agree (tests/test_generator.py::test_presets_match_skill_table).
+#
+# Parsed by a tiny dependency-free loader in src/namima/generator.py — NO PyYAML
+# (namima rule 6: no extra dependencies beyond numpy/scipy). The loader supports
+# only this file's shape: top-level keys, one nesting level, inline [a, b] lists,
+# and int/float/str scalars. Keep the structure flat.
+
+# Reference pitch options. Absolute preset frequencies below already bake in
+# their intended tuning context; `tuning` is recorded as provenance metadata and
+# is only *applied* when deriving a base frequency from a note via note_to_freq().
+tunings: [432, 440, 444]
+default_tuning: 440
+
+# name -> absolute fundamental frequency (Hz).
+#   c3_128  : 128 Hz  = C3 at A=432 tuning
+#   c5_528  : 528 Hz  = C5 at A=444 tuning (also solfeggio 528)
+#   solfeggio_* : the classic solfeggio set (absolute Hz, tuning-independent)
+frequencies:
+  c3_128: 128.0
+  c5_528: 528.0
+  solfeggio_174: 174.0
+  solfeggio_285: 285.0
+  solfeggio_396: 396.0
+  solfeggio_417: 417.0
+  solfeggio_528: 528.0
+  solfeggio_639: 639.0
+  solfeggio_741: 741.0
+  solfeggio_852: 852.0
+  solfeggio_963: 963.0
+
+# Renderer defaults. Overridable per render() call / CLI flag.
+defaults:
+  sample_rate: 48000        # Hz
+  bit_depth: 24             # WAV PCM sample width (bits)
+  duration_s: 600           # default render length = 10 minutes
+  smoke_duration_s: 5       # CI / smoke-test fast mode
+  octaves: [-1, 1]          # octave partials added around the fundamental
+  detune_cents: 6.0         # micro-detune spread for beating (うなり)
+  lfo_rate_hz: 0.1          # slow amplitude LFO (allowed 0.05 .. 0.2)
+  lfo_depth: 0.15           # one-sided downward swell: level dips to (1-depth)
+                            # at the trough (0 = none, 0.2 = down to ~80%). [0..1]
+  binaural_offset_hz: 0.0   # L/R beat frequency (allowed 0, or 2 .. 8 for binaural)
+  fade_s: 8.0               # fade in / out seconds (skipped when loop=true)
+  gain: 0.5                 # peak-normalisation target (-6 dBFS headroom)

@@ -1,0 +1,17 @@
+# namima offline ambient renderer (candidate) — pinned dependencies.
+#
+# NOTE (namima rule 6 — "no dependencies without approval"): these are NEW deps
+# for the *candidate* renderer only. They are NOT used by the namima runtime
+# (sketch.js / audio.js) and must not be merged to main without human approval.
+# Versions are the ones the smoke test was verified against (win-arm64 wheels OK).
+
+numpy==2.4.6        # required now: synthesis + WAV packing + FFT (in tests)
+
+# scipy is NOT imported by the current renderer — the fade window is pure-numpy
+# so output stays bit-identical regardless of scipy. It is pinned here reserved
+# for the future add_reference_layer slot (pitch-correction via scipy.signal
+# resampling; see SKILL.md §Future slot). Drop it if that slot is cut.
+scipy==1.17.1
+
+# dev-only (not needed to run the renderer; used to run tests/ under pytest):
+#   pytest==8.x

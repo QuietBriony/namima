@@ -7,10 +7,11 @@
 
 numpy==2.4.6        # required now: synthesis + WAV packing + FFT (in tests)
 
-# scipy is NOT imported by the current renderer — the fade window is pure-numpy
-# so output stays bit-identical regardless of scipy. It is pinned here reserved
-# for the future add_reference_layer slot (pitch-correction via scipy.signal
-# resampling; see SKILL.md §Future slot). Drop it if that slot is cut.
+# scipy is not imported by generator.py (its fade window is pure-numpy, so that
+# renderer's output stays bit-identical regardless of scipy). It IS required by
+# the solfeggio_composer.py candidate, which uses scipy.signal butter/lfilter/
+# fftconvolve for its filters and reverb (see docs/solfeggio-composer.md). Also
+# reserved for the future add_reference_layer slot (SKILL.md §Future slot).
 scipy==1.17.1
 
 # dev-only (not needed to run the renderer; used to run tests/ under pytest):

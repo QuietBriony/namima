@@ -18,6 +18,7 @@ from .generator import (
     RenderConfig,
     __version__,
 )
+from .solfeggio_composer import compose, ComposeConfig, build_blocks
 
 __all__ = [
     "render",
@@ -27,5 +28,8 @@ __all__ = [
     "preset_frequency",
     "add_reference_layer",
     "RenderConfig",
+    "compose",
+    "ComposeConfig",
+    "build_blocks",
     "__version__",
 ]

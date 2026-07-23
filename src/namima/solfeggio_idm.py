@@ -37,7 +37,8 @@ from scipy.signal import butter, lfilter
 from .generator import write_wav24, load_presets, preset_frequency
 from .solfeggio_composer import lp, hp, env_ar, reverb, VOWELS
 
-__version__ = "0.2.0-candidate"   # v0.2: chopped-break drums + fat sub bass bus
+__version__ = "0.3.0-candidate"   # v0.3: soft round low end (no sub saturation,
+                                  # split-band master), FM e-piano stabs, airier mix
 TAU = 2.0 * np.pi
 
 
@@ -179,16 +180,19 @@ def voice_air(freqs, dur, sr, rng, vowel="aah"):
 
 # --- drums -------------------------------------------------------------------
 def _kick(rng, sr):
-    n = int(0.34 * sr)
+    """Round, soft deep-house kick (Axel-Boman-ish thud) — weight without crush.
+    Light drive only; the deep tail stays clean so full-range speakers get a
+    soft round low end, while thump/knock keep it readable on small speakers."""
+    n = int(0.38 * sr)
     t = np.arange(n) / sr
-    f = 46 + 118 * np.exp(-t / 0.045)
-    body = np.sin(TAU * np.cumsum(f) / sr) * np.exp(-t / 0.15)
-    thump = np.sin(TAU * 170 * t) * np.exp(-t / 0.045) * 0.5   # phone-audible
-    knock = np.sin(TAU * 112 * t) * np.exp(-t / 0.06) * 0.4
-    sub = np.sin(TAU * 47 * t) * np.exp(-t / 0.26) * 0.55      # deep tail (体にくる)
-    click = hp(rng.standard_normal(n), 1600, sr, 2) * np.exp(-t / 0.0035) * 0.25
-    k = hp(body + thump + knock + sub + click, 34, sr, 1)      # keep the sub weight
-    return np.tanh(2.2 * k) * 0.85
+    f = 45 + 105 * np.exp(-t / 0.05)
+    body = np.sin(TAU * np.cumsum(f) / sr) * np.exp(-t / 0.16)
+    thump = np.sin(TAU * 168 * t) * np.exp(-t / 0.05) * 0.42   # phone-audible
+    knock = np.sin(TAU * 110 * t) * np.exp(-t / 0.07) * 0.35
+    sub = np.sin(TAU * 46 * t) * np.exp(-t / 0.30) * 0.55      # long soft tail
+    click = hp(rng.standard_normal(n), 1600, sr, 2) * np.exp(-t / 0.003) * 0.13
+    k = hp(body + thump + knock + sub + click, 32, sr, 1)
+    return np.tanh(1.5 * k) / np.tanh(1.5) * 0.8
 
 
 def _hat(rng, sr, open_=False):
@@ -304,12 +308,31 @@ def chop_break(loop, cfg, rng, intensity, fill=False):
 # Fat bass bus — sub (<100 Hz, solfeggio octave-downs) + driven mid layer
 # =============================================================================
 def sub_note(f, dur, sr):
-    """Pure deep sine sub — body weight (体にくる). Soft edges, no click."""
+    """Pure deep sine sub — body weight (体にくる). Soft edges, no click.
+    Stays CLEAN through the whole chain (saturating the sub is what crushes a
+    low end); softness comes from the round attack and the un-driven sine."""
     n = int(dur * sr)
     t = np.arange(n) / sr
     v = np.sin(TAU * f * t) + 0.30 * np.sin(TAU * 2 * f * t)
     env = np.exp(-t / (dur * 1.2))
-    return lp(v * env, 170, sr, 2) * env_ar(n, 0.010, 0.08, sr)
+    return lp(v * env, 170, sr, 2) * env_ar(n, 0.014, 0.10, sr)
+
+
+def ep_stab(freqs, dur, sr, rng):
+    """Warm FM e-piano chord stab (1:1 modulator = Rhodes-ish) with tremolo —
+    the Axel-Boman "Hello" chord warmth. Rich but soft; rings and breathes."""
+    n = int(dur * sr)
+    t = np.arange(n) / sr
+    out = np.zeros(n)
+    for f in freqs:
+        ph = rng.uniform(0, TAU)
+        I = 1.1 * np.exp(-t / 0.35)                     # FM index decays → mellow tail
+        v = np.sin(TAU * f * t + I * np.sin(TAU * f * t + ph) + ph)
+        v += 0.30 * np.sin(TAU * 2 * f * t + ph) * np.exp(-t / 0.22)   # strike tine
+        out += v * np.exp(-t / 0.95)
+    trem = 1 + 0.10 * np.sin(TAU * 4.6 * t + rng.uniform(0, TAU))
+    out *= trem / max(len(freqs), 1)
+    return lp(out, 3600, sr, 2) * env_ar(n, 0.006, 0.12, sr)
 
 
 # =============================================================================
@@ -335,7 +358,7 @@ def bar_activity(cfg):
     groove → riff → breakdown (間) → full return → outro."""
     B = cfg.bars
     act = {k: np.zeros(B) for k in
-           ("pad", "air", "hats", "kick", "bass", "bell", "pluck", "clap")}
+           ("pad", "air", "hats", "kick", "bass", "bell", "pluck", "clap", "ep")}
 
     def on(key, b0, b1, v=1.0):
         act[key][max(b0, 0):min(b1, B)] = v
@@ -348,6 +371,7 @@ def bar_activity(cfg):
     on("clap", 16, 40); on("clap", 48, 80)
     on("bell", 16, 40); on("bell", 40, 48, 0.55); on("bell", 48, 80)
     on("pluck", 24, 40); on("pluck", 56, 80)
+    on("ep", 12, 40, 0.85); on("ep", 40, 48, 0.6); on("ep", 48, 82)
     on("air", 16, 18, 0.7); on("air", 24, 26, 0.7)
     on("air", 40, 48, 1.0)                          # breakdown = voice floats
     on("air", 56, 58, 0.8); on("air", 64, 66, 0.8); on("air", 72, 74, 0.8)
@@ -466,6 +490,24 @@ def compose(cfg: IdmConfig | None = None):
             put(subb, sub_note(root / 4.0, 2.0 * cfg.beat, sr),
                 bar * cfg.bar, 0.85 * a)
 
+    # --- e-piano offbeat stabs (the "Hello" warmth; deep-house bounce) --------
+    r_ep = np.random.default_rng(cfg.seed + 19)
+    ep = np.zeros(N)
+    for bar in range(cfg.bars):
+        a = float(act["ep"][bar])
+        if a <= 0:
+            continue
+        sc = scene_of(bar)
+        chord = sorted({f * 2 if f < 300 else f for f in sc["pad"]})[:4]
+        for s, vel in ((2, 0.9), (10, 0.75)):           # offbeats of beats 1 & 3
+            if r_ep.random() < 0.12:                    # occasional 間
+                continue
+            v = ep_stab(chord, 1.1, sr, r_ep)
+            put(ep, v, stime(bar, s, rng=r_ep), vel * a * r_ep.uniform(0.85, 1.0))
+        if bar % 4 == 3 and r_ep.random() < 0.5:        # pickup push
+            v = ep_stab(chord, 0.7, sr, r_ep)
+            put(ep, v, stime(bar, 14, rng=r_ep), 0.55 * a)
+
     # --- pad + vocal air ------------------------------------------------------
     pad = np.zeros(N)
     for b0 in range(0, cfg.bars, 4):
@@ -526,40 +568,54 @@ def compose(cfg: IdmConfig | None = None):
             inten = 1.0
         fill = (phrase % 8) == 6                                 # bars 6-7 of each 8
         chopped = chop_break(loop, cfg, r_brk, inten, fill=fill)
-        put(brk, chopped, phrase * cfg.bar, 0.9 * a)
+        put(brk, chopped, phrase * cfg.bar, 0.78 * a)           # leave air (抜け感)
     drums = lp(drums + brk, 12000, sr, 2)
 
-    # --- sidechain duck: everything low breathes with the BODY kick ----------
+    # --- sidechain duck: soft, slow — breathing, not pumping ------------------
     duck = np.ones(N)
-    dl = int(0.15 * sr)
-    dip = 1 - 0.5 * np.exp(-np.arange(dl) / (0.06 * sr))
+    dl = int(0.18 * sr)
+    dip = 1 - 0.32 * np.exp(-np.arange(dl) / (0.09 * sr))
     for t0 in kick_times:
         i0 = int(t0 * sr)
         i1 = min(i0 + dl, N)
         if i1 > i0:
             duck[i0:i1] *= dip[: i1 - i0]
-    pad *= 0.55 + 0.45 * duck
-    air *= 0.6 + 0.4 * duck
-    bass *= 0.7 + 0.3 * duck
-    subb *= 0.35 + 0.65 * duck                                  # hard pump = groove
+    pad *= 0.6 + 0.4 * duck
+    air *= 0.65 + 0.35 * duck
+    ep *= 0.7 + 0.3 * duck
+    bass *= 0.75 + 0.25 * duck
+    subb *= 0.55 + 0.45 * duck                                  # gentle breathe
 
-    # bass BUS: mid + sub glued with gentle drive (harmonics also make the sub
-    # readable on small speakers); sub itself stays pure below ~170 Hz.
-    bus = np.tanh(1.25 * (0.55 * bass + 0.85 * subb)) / np.tanh(1.25)
+    # bass BUS: only the MID layer gets drive (harmonics for small speakers);
+    # the sub joins CLEAN after — saturating the sub is what crushed the lows.
+    bus = np.tanh(1.4 * 0.6 * bass) / np.tanh(1.4) + 0.66 * subb
 
     # --- mix / master ---------------------------------------------------------
-    send = hp(0.5 * pad + 0.9 * air + 0.55 * bell + 0.5 * plk + 0.30 * brk,
-              300, sr, 2)
-    wet = reverb(send, r_mst, sr, decay=0.6, length=2.2) * 0.30
+    # open, airy reverb (抜け感): longer tail, more sends, EP in the room
+    send = hp(0.5 * pad + 0.9 * air + 0.6 * bell + 0.5 * plk + 0.55 * ep
+              + 0.28 * brk, 300, sr, 2)
+    wet = reverb(send, r_mst, sr, decay=0.85, length=2.8) * 0.33
 
-    mix = (0.30 * pad + 0.30 * air + 0.50 * bell + 0.36 * plk + 0.95 * bus
-           + 0.95 * drums + wet)
+    mix = (0.26 * pad + 0.30 * air + 0.46 * bell + 0.34 * plk + 0.36 * ep
+           + 0.92 * bus + 0.95 * drums + wet)
     mix = hp(mix, 21, sr, 1)
-    mix = np.tanh(1.15 * mix) / np.tanh(1.15)
+    # split-band master: lows stay LINEAR (no crush on full-range speakers),
+    # only the upper band gets a light glue drive.
+    low = lp(mix, 150, sr, 2)
+    mix = low + np.tanh(1.12 * (mix - low)) / np.tanh(1.12)
     fi, fo = int(1.2 * sr), int(6.0 * sr)
     mix[:fi] *= np.linspace(0, 1, fi)
     mix[-fo:] *= np.linspace(1, 0, fo)
-    mix *= cfg.gain / max(float(np.max(np.abs(mix))), 1e-9)
+    # loudness WITHOUT crushing: normalise to an RMS target, then round ONLY the
+    # rare overshoots with a soft knee (samples < 0.70 — i.e. the entire soft
+    # low-end body — pass untouched; a whole-mix saturator is what crushed v0.2).
+    rms = float(np.sqrt(np.mean(mix ** 2)))
+    mix *= 0.235 / max(rms, 1e-9)
+    knee, ceil = 0.70, cfg.gain
+    over = np.abs(mix) > knee
+    mix[over] = np.sign(mix[over]) * (
+        knee + (ceil - knee) * np.tanh((np.abs(mix[over]) - knee) / (ceil - knee)))
+    mix = np.clip(mix, -ceil, ceil)
 
     # mono-safe M/S (same construction as solfeggio_composer): L+R == 2*mix
     d = int(0.008 * sr)

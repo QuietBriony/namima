@@ -35,3 +35,13 @@ One line per decision. Newest last.
   pitch classes), phrase-start /4 drops, hard kick-synced duck (pump groove),
   bus glued with tanh drive; kick sub tail raised, master HP 24→21 Hz. Clean
   body-kick layer stays un-chopped under the break.
+- 2026-07-22 — `solfeggio_idm.py` v0.3 (user: low end sounded crushed; wants
+  soft round lows à la Axel Boman "Hello", more air, richer timbre): **stop
+  saturating the low end** — sub joins the bass bus clean (drive only on the mid
+  layer), split-band master (lows <150 Hz linear, light glue above), loudness via
+  RMS target + soft-knee ceiling that touches only rare peaks >0.70 (the soft
+  low-end body passes untouched); round deep-house kick (drive 2.2→1.5, longer
+  clean tail); soft slow sidechain (breathe, not pump); new FM e-piano offbeat
+  stabs (1:1 Rhodes-ish + tremolo) for the "Hello" warmth; longer airier reverb,
+  thinner break level (抜け感). Measured: low-band crest 9.5→13.2 dB (crush
+  undone) at equal loudness. Music quality human_gate.

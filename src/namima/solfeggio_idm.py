@@ -37,7 +37,7 @@ from scipy.signal import butter, lfilter
 from .generator import write_wav24, load_presets, preset_frequency
 from .solfeggio_composer import lp, hp, env_ar, reverb, VOWELS
 
-__version__ = "0.1.0-candidate"
+__version__ = "0.2.0-candidate"   # v0.2: chopped-break drums + fat sub bass bus
 TAU = 2.0 * np.pi
 
 
@@ -179,27 +179,16 @@ def voice_air(freqs, dur, sr, rng, vowel="aah"):
 
 # --- drums -------------------------------------------------------------------
 def _kick(rng, sr):
-    n = int(0.30 * sr)
+    n = int(0.34 * sr)
     t = np.arange(n) / sr
-    f = 48 + 115 * np.exp(-t / 0.045)
-    body = np.sin(TAU * np.cumsum(f) / sr) * np.exp(-t / 0.14)
+    f = 46 + 118 * np.exp(-t / 0.045)
+    body = np.sin(TAU * np.cumsum(f) / sr) * np.exp(-t / 0.15)
     thump = np.sin(TAU * 170 * t) * np.exp(-t / 0.045) * 0.5   # phone-audible
     knock = np.sin(TAU * 112 * t) * np.exp(-t / 0.06) * 0.4
-    sub = np.sin(TAU * 48 * t) * np.exp(-t / 0.2) * 0.3
+    sub = np.sin(TAU * 47 * t) * np.exp(-t / 0.26) * 0.55      # deep tail (体にくる)
     click = hp(rng.standard_normal(n), 1600, sr, 2) * np.exp(-t / 0.0035) * 0.25
-    k = hp(body + thump + knock + sub + click, 70, sr, 1)
+    k = hp(body + thump + knock + sub + click, 34, sr, 1)      # keep the sub weight
     return np.tanh(2.2 * k) * 0.85
-
-
-def _clap(rng, sr):
-    n = int(0.20 * sr)
-    t = np.arange(n) / sr
-    b, a = butter(2, [900 / (sr / 2), 3600 / (sr / 2)], btype="band")
-    v = lfilter(b, a, rng.standard_normal(n)) * np.exp(-t / 0.055)
-    for dt in (0.010, 0.021):                          # multi-burst = clap texture
-        i = int(dt * sr)
-        v[i:] += lfilter(b, a, rng.standard_normal(n - i)) * np.exp(-t[: n - i] / 0.05) * 0.7
-    return v * 0.5
 
 
 def _hat(rng, sr, open_=False):
@@ -213,6 +202,114 @@ def _shaker(rng, sr):
     t = np.arange(n) / sr
     b, a = butter(2, [4000 / (sr / 2), 9000 / (sr / 2)], btype="band")
     return lfilter(b, a, rng.standard_normal(n)) * np.exp(-t / 0.02) * 0.3
+
+
+def _snare(rng, sr):
+    """Punchy break snare — tone + tuned rattle noise."""
+    n = int(0.19 * sr)
+    t = np.arange(n) / sr
+    tone = (np.sin(TAU * 192 * t) + 0.5 * np.sin(TAU * 330 * t)) * np.exp(-t / 0.045) * 0.6
+    b, a = butter(2, [1200 / (sr / 2), 6500 / (sr / 2)], btype="band")
+    rattle = lfilter(b, a, rng.standard_normal(n)) * np.exp(-t / 0.07)
+    return np.tanh(1.5 * (tone + rattle)) * 0.6
+
+
+# =============================================================================
+# Break engine — synthesize a 2-bar loop, then CHOP it (切り刻み)
+# =============================================================================
+def synth_break_loop(cfg, rng):
+    """A straight-grid (no swing) 2-bar breakbeat loop; swing is added at
+    reassembly so slice boundaries stay aligned to the hits."""
+    sr = cfg.sample_rate
+    step_n = int(cfg.step * sr)
+    n = step_n * 32
+    loop = np.zeros(n + int(0.4 * sr))
+    kick = _kick(rng, sr) * 0.6                     # mid-weighted (the BODY kick is a
+    kick = hp(kick, 90, sr, 1)                      # separate clean layer)
+    snr, hatc, hato, shk = _snare(rng, sr), _hat(rng, sr), _hat(rng, sr, True), _shaker(rng, sr)
+
+    def put(buf, slot, vel):
+        i0 = slot * step_n
+        i1 = min(i0 + len(buf), len(loop))
+        loop[i0:i1] += buf[: i1 - i0] * vel
+
+    for slot, vel in [(0, 1.0), (10, 0.9), (16, 1.0), (22, 0.85), (24, 0.6)]:
+        put(kick, slot, vel)
+    for slot, vel in [(4, 1.0), (12, 0.95), (20, 1.0), (28, 0.95), (30, 0.5)]:
+        put(snr, slot, vel)
+    for slot, vel in [(7, 0.3), (15, 0.25), (23, 0.3), (27, 0.25)]:   # ghosts
+        put(snr, slot, vel)
+    vel16 = [0.85, 0.30, 0.55, 0.30]
+    for slot in range(32):
+        if slot in (14, 26):
+            put(hato, slot, 0.45)
+        else:
+            put(hatc, slot, vel16[slot % 4] * rng.uniform(0.85, 1.0))
+        if slot % 2 == 0:
+            put(shk, slot, 0.5)
+    return loop[:n]
+
+
+def chop_break(loop, cfg, rng, intensity, fill=False):
+    """Reassemble the 2-bar loop from its 32 16th-slices with seeded edit ops:
+    stutter / reverse / neighbor-swap / half-speed / mute (間). ``intensity``
+    0..1 scales how mangled the phrase gets; ``fill`` forces a snare roll at the
+    tail. Slices get 2 ms edge fades so cuts never click."""
+    sr = cfg.sample_rate
+    step_n = len(loop) // 32
+    out = np.zeros(len(loop) + int(0.25 * sr))
+    swing_n = int(0.14 * cfg.step * sr)
+
+    def slice_at(j):
+        j = int(np.clip(j, 0, 31))
+        return loop[j * step_n:(j + 1) * step_n]
+
+    for j in range(32):
+        r = rng.random()
+        s = slice_at(j)
+        if fill and j >= 28:                                  # phrase-end snare roll
+            src = slice_at(4)                                 # a snare slice
+            sub_len = step_n // 2
+            for k in range(2):
+                seg = src[:sub_len] * (1.0 - 0.18 * k)
+                seg = seg * env_ar(len(seg), 0.002, 0.002, sr)
+                i0 = j * step_n + k * sub_len
+                out[i0:i0 + len(seg)] += seg
+            continue
+        if r < 0.05 * intensity:
+            continue                                          # mute = 間
+        elif r < 0.15 * intensity:
+            sub_n = max(step_n // int(rng.integers(2, 5)), 8)  # stutter/retrigger
+            reps = step_n // sub_n
+            seg0 = s[:sub_n] * env_ar(sub_n, 0.002, 0.002, sr)
+            for k in range(reps):
+                out_i = j * step_n + k * sub_n
+                out[out_i:out_i + sub_n] += seg0 * (1.0 - 0.12 * k)
+            continue
+        elif r < 0.21 * intensity:
+            s = s[::-1]                                       # reverse
+        elif r < 0.28 * intensity:
+            s = slice_at(j + int(rng.choice([-1, 1, 2])))     # neighbor swap
+        elif r < 0.33 * intensity:
+            half = s[: step_n // 2]                           # half-speed pitch-down
+            s = np.interp(np.arange(step_n) / 2.0, np.arange(len(half)), half,
+                          right=0.0)
+        s = s * env_ar(len(s), 0.002, 0.002, sr)
+        i0 = j * step_n + (swing_n if j % 2 == 1 else 0)      # swing at reassembly
+        out[i0:i0 + len(s)] += s
+    return out
+
+
+# =============================================================================
+# Fat bass bus — sub (<100 Hz, solfeggio octave-downs) + driven mid layer
+# =============================================================================
+def sub_note(f, dur, sr):
+    """Pure deep sine sub — body weight (体にくる). Soft edges, no click."""
+    n = int(dur * sr)
+    t = np.arange(n) / sr
+    v = np.sin(TAU * f * t) + 0.30 * np.sin(TAU * 2 * f * t)
+    env = np.exp(-t / (dur * 1.2))
+    return lp(v * env, 170, sr, 2) * env_ar(n, 0.010, 0.08, sr)
 
 
 # =============================================================================
@@ -231,7 +328,6 @@ BASS_PAT = [
     (8, 0.5, 0.25, 0.90), (11, 1.0, 0.12, 0.70), (14, 0.5, 0.10, 0.50),
 ]
 PLUCK_STEPS = [5, 13]                     # answers in the riff's gaps
-HAT_VEL = [0.85, 0.30, 0.55, 0.30] * 4    # 16-step velocity map
 
 
 def bar_activity(cfg):
@@ -347,8 +443,11 @@ def compose(cfg: IdmConfig | None = None):
                 v = ks_pluck(f, 0.7, sr, r_plk)
                 put(plk, v, stime(bar, s, rng=r_plk), 0.8 * a)
 
-    # --- bass groove (bouncing octaves, locked to the kick) -------------------
+    # --- fat bass bus: driven mid layer + deep sub (<100 Hz) ------------------
+    # sub pitches are solfeggio octave-downs (174→87/43.5, 285→142.5/71.25 Hz):
+    # same non-12-TET pitch classes, just dropped into the body register.
     bass = np.zeros(N)
+    subb = np.zeros(N)
     for bar in range(cfg.bars):
         a = float(act["bass"][bar])
         if a <= 0:
@@ -359,6 +458,13 @@ def compose(cfg: IdmConfig | None = None):
                 continue
             v = bass_note(root * octm, dur, sr)
             put(bass, v, stime(bar, s, rng=r_bass), vel * a)
+        fsub = root / 2.0                                       # 87 / 142.5 Hz
+        for (s, dur_steps, vel) in ((0, 3.5, 1.0), (6, 1.5, 0.7), (8, 3.5, 0.95)):
+            put(subb, sub_note(fsub, dur_steps * cfg.step, sr),
+                stime(bar, s, human=0.0008, rng=r_bass), vel * a)
+        if bar % 8 == 0:                                        # phrase drop: /4 deep
+            put(subb, sub_note(root / 4.0, 2.0 * cfg.beat, sr),
+                bar * cfg.bar, 0.85 * a)
 
     # --- pad + vocal air ------------------------------------------------------
     pad = np.zeros(N)
@@ -383,46 +489,50 @@ def compose(cfg: IdmConfig | None = None):
         v = voice_air(sc["voice"], span * cfg.bar + 0.8, sr, r_air, vw)
         put(air, v, bar * cfg.bar, a)
 
-    # --- drums (groove: swing, velocity map, ratchet fills) -------------------
+    # --- drums: clean BODY kick layer + chopped break on top -----------------
     drums = np.zeros(N)
-    rev_send = np.zeros(N)
-    kick_b, clap_b = _kick(r_drm, sr), _clap(r_drm, sr)
-    hatc, hato, shk = _hat(r_drm, sr), _hat(r_drm, sr, True), _shaker(r_drm, sr)
+    brk = np.zeros(N)
+    kick_b = _kick(r_drm, sr)
     kick_times = []
     for bar in range(cfg.bars):
-        ak, ah, ac = (float(act[k][bar]) for k in ("kick", "hats", "clap"))
+        ak = float(act["kick"][bar])
+        if ak <= 0:
+            continue
         ksteps = [0, 8] + ([6] if bar % 2 == 0 else [11])
         if r_drm.random() < 0.25:
             ksteps.append(3)
-        if ak > 0:
-            for s in ksteps:
-                t0 = stime(bar, s)
-                put(drums, kick_b, t0, ak * r_drm.uniform(0.92, 1.0))
-                kick_times.append(t0)
-        if ac > 0:
-            for s in (4, 12):
-                v = ac * r_drm.uniform(0.55, 0.7)
-                t0 = stime(bar, s)
-                put(drums, clap_b, t0, v)
-                put(rev_send, clap_b, t0, v)
-        if ah > 0:
-            for s in range(16):
-                if s == 14 and bar % 2 == 1:
-                    put(drums, hato, stime(bar, s), 0.45 * ah)
-                else:
-                    put(drums, hatc, stime(bar, s), HAT_VEL[s] * ah * r_drm.uniform(0.85, 1.0))
-                if s % 2 == 0:
-                    put(drums, shk, stime(bar, s), 0.5 * ah)
-            if bar % 8 == 7:                                     # ratchet fill
-                for k in range(4):
-                    put(drums, hatc, bar * cfg.bar + 15 * cfg.step + k * cfg.step / 4,
-                        0.5 * ah * (1 - k * 0.15))
-    drums = lp(drums, 12000, sr, 2)
+        if r_drm.random() < 0.15:                                # 32nd double-hit
+            put(drums, kick_b, stime(bar, 0) - cfg.step / 2, ak * 0.5)
+        for s in ksteps:
+            t0 = stime(bar, s)
+            put(drums, kick_b, t0, ak * r_drm.uniform(0.92, 1.0))
+            kick_times.append(t0)
 
-    # --- sidechain duck: pad/air/bass dip under each actual kick --------------
+    # chopped break (切り刻み): intensity grows across sections, fills at
+    # phrase ends. act["hats"] gates the break layer.
+    r_brk = np.random.default_rng(cfg.seed + 18)
+    loop = synth_break_loop(cfg, r_brk)
+    for phrase in range(0, cfg.bars, 2):
+        a = float(np.max(act["hats"][phrase:phrase + 2]))
+        if a <= 0:
+            continue
+        if phrase < 16:
+            inten = 0.25
+        elif phrase < 40:
+            inten = 0.55
+        elif phrase < 64:
+            inten = 0.75
+        else:
+            inten = 1.0
+        fill = (phrase % 8) == 6                                 # bars 6-7 of each 8
+        chopped = chop_break(loop, cfg, r_brk, inten, fill=fill)
+        put(brk, chopped, phrase * cfg.bar, 0.9 * a)
+    drums = lp(drums + brk, 12000, sr, 2)
+
+    # --- sidechain duck: everything low breathes with the BODY kick ----------
     duck = np.ones(N)
-    dl = int(0.14 * sr)
-    dip = 1 - 0.45 * np.exp(-np.arange(dl) / (0.06 * sr))
+    dl = int(0.15 * sr)
+    dip = 1 - 0.5 * np.exp(-np.arange(dl) / (0.06 * sr))
     for t0 in kick_times:
         i0 = int(t0 * sr)
         i1 = min(i0 + dl, N)
@@ -431,15 +541,20 @@ def compose(cfg: IdmConfig | None = None):
     pad *= 0.55 + 0.45 * duck
     air *= 0.6 + 0.4 * duck
     bass *= 0.7 + 0.3 * duck
+    subb *= 0.35 + 0.65 * duck                                  # hard pump = groove
+
+    # bass BUS: mid + sub glued with gentle drive (harmonics also make the sub
+    # readable on small speakers); sub itself stays pure below ~170 Hz.
+    bus = np.tanh(1.25 * (0.55 * bass + 0.85 * subb)) / np.tanh(1.25)
 
     # --- mix / master ---------------------------------------------------------
-    send = hp(0.5 * pad + 0.9 * air + 0.55 * bell + 0.5 * plk + 0.9 * rev_send,
+    send = hp(0.5 * pad + 0.9 * air + 0.55 * bell + 0.5 * plk + 0.30 * brk,
               300, sr, 2)
     wet = reverb(send, r_mst, sr, decay=0.6, length=2.2) * 0.30
 
-    mix = (0.30 * pad + 0.30 * air + 0.50 * bell + 0.36 * plk + 0.52 * bass
+    mix = (0.30 * pad + 0.30 * air + 0.50 * bell + 0.36 * plk + 0.95 * bus
            + 0.95 * drums + wet)
-    mix = hp(mix, 24, sr, 1)
+    mix = hp(mix, 21, sr, 1)
     mix = np.tanh(1.15 * mix) / np.tanh(1.15)
     fi, fo = int(1.2 * sr), int(6.0 * sr)
     mix[:fi] *= np.linspace(0, 1, fi)

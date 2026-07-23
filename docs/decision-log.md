@@ -25,3 +25,13 @@ One line per decision. Newest last.
   mono-safe M/S master. Pitches from `presets.yaml` (absolute non-12-TET
   solfeggio). Tests: `tests/test_solfeggio_idm.py`. Same candidate boundaries;
   music quality human_gate.
+- 2026-07-22 — `solfeggio_idm.py` v0.2 (user: drums more complex / bass fatter):
+  drums become a **chopped break** — synthesize a straight-grid 2-bar break loop,
+  slice into 16ths, reassemble per phrase with seeded edit ops (stutter, reverse,
+  neighbor-swap, half-speed, mute; snare-roll fills; intensity grows across
+  sections; swing applied at reassembly so slices stay hit-aligned; 2 ms edge
+  fades). Bass becomes a **fat bus**: driven mid layer + deep sub (<100 Hz) on
+  solfeggio octave-downs (174→87/43.5, 285→142.5/71.25 Hz — same non-12-TET
+  pitch classes), phrase-start /4 drops, hard kick-synced duck (pump groove),
+  bus glued with tanh drive; kick sub tail raised, master HP 24→21 Hz. Clean
+  body-kick layer stays un-chopped under the break.

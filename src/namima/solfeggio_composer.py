@@ -432,15 +432,16 @@ def _gate(N, cfg, on_bar, off_bar=0):
 # =============================================================================
 # compose
 # =============================================================================
-def compose(cfg: ComposeConfig | None = None):
+def compose(cfg: ComposeConfig | None = None, blocks: list | None = None):
     """Render the piece. Returns ``(stereo (n,2) in [-1,1], meta)``. Deterministic
     for ``cfg.seed`` — each layer gets its own seeded RNG so editing one layer does
-    not perturb the others."""
+    not perturb the others. ``blocks`` overrides the default harmonic scenes
+    (same shape as ``build_blocks()``) e.g. to centre a render on one frequency."""
     cfg = cfg or ComposeConfig()
     sr = cfg.sample_rate
     N = int((cfg.bars * cfg.bar + 4.0) * sr)               # + reverb/fade tail
     presets = load_presets()
-    blocks = build_blocks(presets)
+    blocks = blocks if blocks is not None else build_blocks(presets)
 
     rng_bed = np.random.default_rng(cfg.seed + 1)
     rng_mel = np.random.default_rng(cfg.seed + 2)

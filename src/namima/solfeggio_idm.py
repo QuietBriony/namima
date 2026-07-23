@@ -472,12 +472,14 @@ def smooth_gate(act_row, N, cfg):
 # =============================================================================
 # compose
 # =============================================================================
-def compose(cfg: IdmConfig | None = None):
-    """Render the piece. Returns ``(stereo (n,2), meta)``. Deterministic."""
+def compose(cfg: IdmConfig | None = None, scenes: list | None = None):
+    """Render the piece. Returns ``(stereo (n,2), meta)``. Deterministic.
+    ``scenes`` overrides the default harmonic scenes (same shape as
+    ``build_scenes()``) e.g. to centre a render on one frequency."""
     cfg = cfg or IdmConfig()
     sr = cfg.sample_rate
     N = int((cfg.bars * cfg.bar + 3.0) * sr)
-    scenes = build_scenes()
+    scenes = scenes if scenes is not None else build_scenes()
     act = bar_activity(cfg)
 
     r_bell = np.random.default_rng(cfg.seed + 11)

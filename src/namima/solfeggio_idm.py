@@ -37,8 +37,8 @@ from scipy.signal import butter, lfilter
 from .generator import write_wav24, load_presets, preset_frequency
 from .solfeggio_composer import lp, hp, env_ar, reverb, VOWELS
 
-__version__ = "0.3.0-candidate"   # v0.3: soft round low end (no sub saturation,
-                                  # split-band master), FM e-piano stabs, airier mix
+__version__ = "0.4.0-candidate"   # v0.4: pattern banks (break/riff/bass) rotating
+                                  # per section — Aphex-style rhythmic variety
 TAU = 2.0 * np.pi
 
 
@@ -221,9 +221,10 @@ def _snare(rng, sr):
 # =============================================================================
 # Break engine — synthesize a 2-bar loop, then CHOP it (切り刻み)
 # =============================================================================
-def synth_break_loop(cfg, rng):
-    """A straight-grid (no swing) 2-bar breakbeat loop; swing is added at
-    reassembly so slice boundaries stay aligned to the hits."""
+def synth_break_loop(cfg, rng, pattern):
+    """A straight-grid (no swing) 2-bar breakbeat loop from a pattern-bank entry
+    (see BREAK_PATTERNS); swing is added at reassembly so slice boundaries stay
+    aligned to the hits."""
     sr = cfg.sample_rate
     step_n = int(cfg.step * sr)
     n = step_n * 32
@@ -237,15 +238,15 @@ def synth_break_loop(cfg, rng):
         i1 = min(i0 + len(buf), len(loop))
         loop[i0:i1] += buf[: i1 - i0] * vel
 
-    for slot, vel in [(0, 1.0), (10, 0.9), (16, 1.0), (22, 0.85), (24, 0.6)]:
+    for slot, vel in pattern["kick"]:
         put(kick, slot, vel)
-    for slot, vel in [(4, 1.0), (12, 0.95), (20, 1.0), (28, 0.95), (30, 0.5)]:
+    for slot, vel in pattern["snare"]:
         put(snr, slot, vel)
-    for slot, vel in [(7, 0.3), (15, 0.25), (23, 0.3), (27, 0.25)]:   # ghosts
+    for slot, vel in pattern["ghost"]:
         put(snr, slot, vel)
     vel16 = [0.85, 0.30, 0.55, 0.30]
     for slot in range(32):
-        if slot in (14, 26):
+        if slot in pattern["open"]:
             put(hato, slot, 0.45)
         else:
             put(hatc, slot, vel16[slot % 4] * rng.uniform(0.85, 1.0))
@@ -336,20 +337,67 @@ def ep_stab(freqs, dur, sr, rng):
 
 
 # =============================================================================
-# Patterns (composed riffs with 間 — rests are part of the phrase)
+# Pattern banks (composed riffs with 間) — sections rotate through these, so the
+# piece's rhythmic grammar keeps changing (Aphex-style pattern variety).
 # =============================================================================
-# bell riff: 2 bars of (step, pool_idx, oct_mul, vel); bar 2 leaves space
-BELL_RIFF = [
-    (0, 0, 1.0, 1.00), (3, 1, 1.0, 0.80), (6, 2, 1.0, 0.90),
-    (10, 1, 0.5, 0.70), (14, 3, 1.0, 0.85),
-    (16 + 2, 2, 1.0, 0.80), (16 + 7, 0, 2.0, 0.55), (16 + 8, 1, 1.0, 0.90),
-    (16 + 11, 3, 0.5, 0.75),
-]
-# bass groove: (step, oct_mul, dur_s, vel) — bouncing octaves, syncopated
-BASS_PAT = [
-    (0, 0.5, 0.30, 1.00), (3, 0.5, 0.12, 0.60), (6, 1.0, 0.15, 0.80),
-    (8, 0.5, 0.25, 0.90), (11, 1.0, 0.12, 0.70), (14, 0.5, 0.10, 0.50),
-]
+# bell riffs: 2 bars of (step0..31, pool_idx, oct_mul, vel); rests are the point
+BELL_RIFFS = {
+    "call": [                                   # the original call phrase
+        (0, 0, 1.0, 1.00), (3, 1, 1.0, 0.80), (6, 2, 1.0, 0.90),
+        (10, 1, 0.5, 0.70), (14, 3, 1.0, 0.85),
+        (18, 2, 1.0, 0.80), (23, 0, 2.0, 0.55), (24, 1, 1.0, 0.90),
+        (27, 3, 0.5, 0.75),
+    ],
+    "rise": [                                   # ascending figure, answer high
+        (0, 0, 1.0, 0.85), (3, 1, 1.0, 0.70), (6, 2, 1.0, 0.80),
+        (9, 3, 1.0, 0.70), (12, 3, 2.0, 0.60),
+        (16, 2, 1.0, 0.80), (22, 1, 1.0, 0.70), (24, 0, 1.0, 0.85),
+        (30, 1, 0.5, 0.60),
+    ],
+    "spark": [                                  # sparse high glints, lots of 間
+        (0, 3, 1.0, 0.90), (6, 2, 1.0, 0.60), (20, 3, 2.0, 0.70),
+        (28, 1, 1.0, 0.50),
+    ],
+}
+# break patterns: 32-slot (2-bar) hit lists per drum
+BREAK_PATTERNS = {
+    "xtal": dict(                               # laid back (the original)
+        kick=[(0, 1.0), (10, 0.9), (16, 1.0), (22, 0.85), (24, 0.6)],
+        snare=[(4, 1.0), (12, 0.95), (20, 1.0), (28, 0.95), (30, 0.5)],
+        ghost=[(7, 0.3), (15, 0.25), (23, 0.3), (27, 0.25)],
+        open=[14, 26]),
+    "on": dict(                                 # bouncier, kick-forward
+        kick=[(0, 1.0), (6, 0.8), (8, 0.9), (16, 1.0), (20, 0.7), (27, 0.75)],
+        snare=[(4, 1.0), (12, 0.9), (20, 1.0), (28, 0.9), (29, 0.55)],
+        ghost=[(2, 0.25), (11, 0.3), (15, 0.3), (19, 0.25), (31, 0.3)],
+        open=[10, 30]),
+    "roll": dict(                               # busy jungle-ish snare work
+        kick=[(0, 1.0), (3, 0.7), (10, 0.85), (16, 1.0), (19, 0.7), (26, 0.8)],
+        snare=[(4, 0.95), (7, 0.5), (12, 0.9), (20, 0.95), (23, 0.5),
+               (28, 0.9), (31, 0.4)],
+        ghost=[(9, 0.3), (14, 0.3), (25, 0.3), (30, 0.25)],
+        open=[22]),
+}
+# bass grooves: (step, oct_mul, dur_s, vel)
+BASS_PATTERNS = {
+    "bounce": [                                 # bouncing octaves (original)
+        (0, 0.5, 0.30, 1.00), (3, 0.5, 0.12, 0.60), (6, 1.0, 0.15, 0.80),
+        (8, 0.5, 0.25, 0.90), (11, 1.0, 0.12, 0.70), (14, 0.5, 0.10, 0.50),
+    ],
+    "offbeat": [                                # house offbeat 8ths
+        (2, 1.0, 0.16, 0.85), (6, 1.0, 0.16, 0.80),
+        (10, 1.0, 0.16, 0.85), (14, 1.0, 0.16, 0.80),
+    ],
+    "roll16": [                                 # rolling 16th drive
+        (0, 0.5, 0.20, 0.95), (2, 1.0, 0.10, 0.50), (3, 1.0, 0.10, 0.60),
+        (6, 0.5, 0.14, 0.80), (8, 0.5, 0.20, 0.90), (10, 1.0, 0.10, 0.50),
+        (11, 0.5, 0.12, 0.70), (14, 1.0, 0.10, 0.55),
+    ],
+}
+# per-8-bar-section rotation (index = bar//8, wraps)
+BREAK_PLAN = ["xtal", "xtal", "xtal", "on", "on", "xtal", "on", "roll", "roll", "xtal", "xtal"]
+RIFF_PLAN = ["call", "call", "call", "rise", "rise", "call", "rise", "spark", "spark", "call", "call"]
+BASS_PLAN = ["bounce", "bounce", "bounce", "offbeat", "offbeat", "bounce", "offbeat", "roll16", "roll16", "bounce", "bounce"]
 PLUCK_STEPS = [5, 13]                     # answers in the riff's gaps
 
 
@@ -434,15 +482,17 @@ def compose(cfg: IdmConfig | None = None):
             t += swing
         return t + rng.uniform(-human, human)
 
-    # --- bell riff (FM mallet) — repeats WITH variation, and rests (間) -------
+    # --- bell riff (FM mallet) — riff bank rotates per section, and each phrase
+    # still varies (mute / re-pitch): pattern variety on top of variation.
     bell = np.zeros(N)
     for phrase in range(0, cfg.bars, 2):
         if act["bell"][min(phrase, cfg.bars - 1)] <= 0:
             continue
+        riff = BELL_RIFFS[RIFF_PLAN[(phrase // 8) % len(RIFF_PLAN)]]
         pool = scene_of(phrase)["bell"]
-        mute = int(r_bell.integers(0, len(BELL_RIFF)))          # drop one hit / phrase
-        subst = int(r_bell.integers(0, len(BELL_RIFF)))         # re-pitch one hit
-        for j, (st, idx, octm, vel) in enumerate(BELL_RIFF):
+        mute = int(r_bell.integers(0, len(riff)))               # drop one hit / phrase
+        subst = int(r_bell.integers(0, len(riff)))              # re-pitch one hit
+        for j, (st, idx, octm, vel) in enumerate(riff):
             if j == mute and r_bell.random() < 0.5:
                 continue
             idx2 = int(r_bell.integers(0, len(pool))) if j == subst else idx
@@ -477,7 +527,8 @@ def compose(cfg: IdmConfig | None = None):
         if a <= 0:
             continue
         root = scene_of(bar)["root"]
-        for (s, octm, dur, vel) in BASS_PAT:
+        pat = BASS_PATTERNS[BASS_PLAN[(bar // 8) % len(BASS_PLAN)]]
+        for (s, octm, dur, vel) in pat:
             if s == 14 and r_bass.random() < 0.35:              # occasional 間
                 continue
             v = bass_note(root * octm, dur, sr)
@@ -550,14 +601,18 @@ def compose(cfg: IdmConfig | None = None):
             put(drums, kick_b, t0, ak * r_drm.uniform(0.92, 1.0))
             kick_times.append(t0)
 
-    # chopped break (切り刻み): intensity grows across sections, fills at
-    # phrase ends. act["hats"] gates the break layer.
+    # chopped break (切り刻み): the break-pattern bank rotates per section, chop
+    # intensity grows across sections, fills at phrase ends. Each pattern's loop
+    # is built with its own seeded rng, so the plan can change without shifting
+    # the other patterns' sound.
     r_brk = np.random.default_rng(cfg.seed + 18)
-    loop = synth_break_loop(cfg, r_brk)
+    loops = {name: synth_break_loop(cfg, np.random.default_rng(cfg.seed + 30 + i), pat)
+             for i, (name, pat) in enumerate(sorted(BREAK_PATTERNS.items()))}
     for phrase in range(0, cfg.bars, 2):
         a = float(np.max(act["hats"][phrase:phrase + 2]))
         if a <= 0:
             continue
+        loop = loops[BREAK_PLAN[(phrase // 8) % len(BREAK_PLAN)]]
         if phrase < 16:
             inten = 0.25
         elif phrase < 40:

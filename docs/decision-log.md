@@ -45,3 +45,11 @@ One line per decision. Newest last.
   stabs (1:1 Rhodes-ish + tremolo) for the "Hello" warmth; longer airier reverb,
   thinner break level (抜け感). Measured: low-band crest 9.5→13.2 dB (crush
   undone) at equal loudness. Music quality human_gate.
+- 2026-07-22 — `solfeggio_idm.py` v0.4 (user: "パターンほかに欲しい / aphex twin
+  パターンでいろいろ"): pattern BANKS rotating per 8-bar section — breaks
+  {xtal=laid-back, on=bouncy kick-forward, roll=jungle-ish snare work}, bell
+  riffs {call, rise=ascending, spark=sparse high glints}, bass {bounce=octaves,
+  offbeat=house 8ths, roll16=rolling 16ths}; per-pattern seeded loop rngs so
+  editing the plan never shifts another pattern's sound. Phrase-level variation
+  (mute/re-pitch) kept on top. Section band-profiles measured distinct; low-band
+  crest 12.8 dB (softness kept); tests pass.

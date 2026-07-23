@@ -1,0 +1,487 @@
+"""Solfeggio IDM (candidate) — Aphex-Twin SAW-era mood ("Xtal" / "On").
+
+Where ``solfeggio_composer`` drifts, this one *grooves*: composed riffs with 間
+(rests), distinct instrument timbres, swing, and a syncopated bass locked to the
+kick. Response to feedback that the drift piece was 単調 (monotonous) with 音色が
+ない (no timbre).
+
+Register → timbre assignment (all pitches are ABSOLUTE solfeggio Hz, non-12-TET;
+octave shifts f*2 / f/2 preserve the pitch class):
+  * 174 / 285 (low)      → bouncing octave BASS + warm breathy PAD body
+  * 396 / 417 / 528 (mid)→ Karplus-Strong PLUCK answers + formant VOICE air
+  * 639 / 741 / 852 (hi) → FM MALLET-BELL main riff (the "On" stab timbre)
+  * 963 / 888 (top)      → accents only
+
+LOCKED AESTHETIC (user direction):
+  * NO portamento/glide lead (stable pitch per note; plucks/stabs are fine).
+  * solfeggio frequencies as absolute Hz from presets.yaml — outside do-re-mi.
+  * groove + riffs with 間; Aphex Twin "Xtal"/"On" as the mood reference.
+
+DESIGN CONSTRAINTS: numpy + scipy only; deterministic per-layer seeded RNG;
+48 kHz / 24-bit via generator.write_wav24; mono-compatible master (M/S with
+high-passed side — L+R == 2*mix exactly); kick carries phone-audible mid-body.
+Candidate only: no runtime wiring, generated audio gitignored.
+
+    python -m namima.solfeggio_idm --out idm.wav            # full ~3 min
+    python -m namima.solfeggio_idm --out s.wav --smoke      # 16-bar smoke
+"""
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+from typing import Sequence
+
+import numpy as np
+from scipy.signal import butter, lfilter
+
+from .generator import write_wav24, load_presets, preset_frequency
+from .solfeggio_composer import lp, hp, env_ar, reverb, VOWELS
+
+__version__ = "0.1.0-candidate"
+TAU = 2.0 * np.pi
+
+
+@dataclass
+class IdmConfig:
+    bars: int = 88
+    bpm: float = 114.0
+    seed: int = 852963
+    sample_rate: int = 48000
+    gain: float = 0.86
+
+    @property
+    def beat(self) -> float:
+        return 60.0 / self.bpm
+
+    @property
+    def bar(self) -> float:
+        return 4.0 * self.beat
+
+    @property
+    def step(self) -> float:
+        return self.beat / 4.0
+
+    def as_meta(self) -> dict:
+        return {
+            "version": __version__, "kind": "solfeggio_idm", "bpm": self.bpm,
+            "bars": self.bars, "seed": self.seed, "sample_rate": self.sample_rate,
+            "bit_depth": 24, "channels": 2, "gain": self.gain,
+            "pitch_system": "absolute-solfeggio-Hz (non-12-TET; presets.yaml)",
+        }
+
+
+def build_scenes(presets: dict | None = None) -> list[dict]:
+    """Two alternating harmonic scenes; pitches sourced from presets.yaml."""
+    p = presets or load_presets()
+
+    def S(n):
+        return preset_frequency(f"solfeggio_{n}", p)
+
+    return [
+        dict(root=S(174), bell=[S(639), S(741), S(852), S(963)],
+             pluck=[S(396), S(417), S(528)], pad=[S(174), S(174) * 2, S(417), S(528)],
+             voice=[S(396), S(528)]),
+        dict(root=S(285), bell=[S(639), S(741), S(852), S(963)],
+             pluck=[S(417), S(528), S(639)], pad=[S(285), S(285) * 2, S(639)],
+             voice=[S(417), S(639)]),
+    ]
+
+
+# =============================================================================
+# Instrument timbres (each a distinct voice — the 音色 layer)
+# =============================================================================
+def fm_bell(f, dur, sr, rng):
+    """2-op FM mallet/bell — the "On" stab. Inharmonic 3.53 ratio, index decays
+    fast so the strike is metallic and the tail is warm. Stable pitch (no glide)."""
+    n = int(dur * sr)
+    t = np.arange(n) / sr
+    I = 2.4 * np.exp(-t / 0.11)                      # FM index envelope
+    mod = np.sin(TAU * f * 3.53 * t)
+    v = np.sin(TAU * f * t + I * mod)
+    v += 0.35 * np.sin(TAU * f * 1.004 * t + 0.6 * I * mod)   # detuned body
+    v += 0.25 * np.sin(TAU * f * 0.5 * t) * np.exp(-t / 0.5)  # sub-octave warmth
+    v *= np.exp(-t / 0.34)
+    v *= env_ar(n, 0.002, 0.02, sr)
+    return lp(v, 6500, sr, 2)
+
+
+def ks_pluck(f, dur, sr, rng):
+    """Karplus-Strong pluck — organic string-ish answer voice."""
+    n = int(dur * sr)
+    p = max(int(sr / f), 2)
+    buf = rng.standard_normal(p) * 0.7
+    out = np.zeros(n + p)
+    prev = buf
+    pos = 0
+    while pos < n:
+        cur = 0.5 * (prev + np.concatenate([prev[-1:], prev[:-1]])) * 0.994
+        m = min(p, n - pos)
+        out[pos:pos + m] = cur[:m]
+        prev = cur
+        pos += m
+    v = out[:n] * env_ar(n, 0.001, 0.05, sr)
+    return lp(v, 4200, sr, 2)
+
+
+def bass_note(f, dur, sr):
+    """Rounded, driven bass — bouncy, locks to the kick."""
+    n = int(dur * sr)
+    t = np.arange(n) / sr
+    v = np.sin(TAU * f * t) + 0.35 * np.sin(TAU * 2 * f * t) + 0.12 * np.sin(TAU * 3 * f * t)
+    v = np.tanh(1.8 * v)
+    env = np.exp(-t / (dur * 0.45))
+    atk = max(int(0.004 * sr), 1)
+    env[:atk] *= np.linspace(0, 1, atk)
+    return lp(v * env * env_ar(n, 0.002, 0.03, sr), 900, sr, 2)
+
+
+def breathy_pad(freqs, dur, sr, rng):
+    """Warm detuned pad + air noise — the Xtal breathiness."""
+    n = int(dur * sr)
+    t = np.arange(n) / sr
+    v = np.zeros(n)
+    for f in freqs:
+        for det in (-4.0, 4.0):
+            fk = f * 2.0 ** (det / 1200.0)
+            ph = rng.uniform(0, TAU)
+            for h in (1, 2, 3, 4):
+                v += (1.0 / h ** 1.3) * np.sin(TAU * h * fk * t + ph)
+    v = lp(v, 1700, sr, 2) / max(len(freqs), 1)
+    breath = lfilter(*butter(2, [800 / (sr / 2), 2600 / (sr / 2)], btype="band"),
+                     rng.standard_normal(n)) * 0.05
+    breath *= 0.6 + 0.4 * np.sin(TAU * 0.11 * t + rng.uniform(0, TAU))
+    return (v + breath) * env_ar(n, 1.2, 1.4, sr)
+
+
+def voice_air(freqs, dur, sr, rng, vowel="aah"):
+    """Breathy formant chord — wordless vocal air (Xtal-ish)."""
+    n = int(dur * sr)
+    t = np.arange(n) / sr
+    out = np.zeros(n)
+    F, BW, G = VOWELS[vowel]
+    for f in freqs:
+        vib = 1.0 + 0.005 * np.sin(TAU * 4.8 * t + rng.uniform(0, TAU))
+        ph = TAU * f * np.cumsum(vib) / sr
+        kmax = min(int((sr / 2) / f), 18)
+        src = np.zeros(n)
+        for kk in range(1, kmax + 1):
+            src += (1.0 / kk ** 1.4) * np.sin(kk * ph)
+        src = 0.4 * src + hp(rng.standard_normal(n), 1800, sr, 2) * 0.12  # breathier
+        voc = np.zeros(n)
+        for fc, bw, g in zip(F, BW, G):
+            b, a = butter(2, [max(fc - bw, 40) / (sr / 2),
+                              min(fc + bw, sr / 2 - 100) / (sr / 2)], btype="band")
+            voc += g * lfilter(b, a, src)
+        out += voc
+    m = float(np.max(np.abs(out)))
+    return (out / m if m > 0 else out) * env_ar(n, 0.7, 0.9, sr)
+
+
+# --- drums -------------------------------------------------------------------
+def _kick(rng, sr):
+    n = int(0.30 * sr)
+    t = np.arange(n) / sr
+    f = 48 + 115 * np.exp(-t / 0.045)
+    body = np.sin(TAU * np.cumsum(f) / sr) * np.exp(-t / 0.14)
+    thump = np.sin(TAU * 170 * t) * np.exp(-t / 0.045) * 0.5   # phone-audible
+    knock = np.sin(TAU * 112 * t) * np.exp(-t / 0.06) * 0.4
+    sub = np.sin(TAU * 48 * t) * np.exp(-t / 0.2) * 0.3
+    click = hp(rng.standard_normal(n), 1600, sr, 2) * np.exp(-t / 0.0035) * 0.25
+    k = hp(body + thump + knock + sub + click, 70, sr, 1)
+    return np.tanh(2.2 * k) * 0.85
+
+
+def _clap(rng, sr):
+    n = int(0.20 * sr)
+    t = np.arange(n) / sr
+    b, a = butter(2, [900 / (sr / 2), 3600 / (sr / 2)], btype="band")
+    v = lfilter(b, a, rng.standard_normal(n)) * np.exp(-t / 0.055)
+    for dt in (0.010, 0.021):                          # multi-burst = clap texture
+        i = int(dt * sr)
+        v[i:] += lfilter(b, a, rng.standard_normal(n - i)) * np.exp(-t[: n - i] / 0.05) * 0.7
+    return v * 0.5
+
+
+def _hat(rng, sr, open_=False):
+    n = int((0.14 if open_ else 0.035) * sr)
+    t = np.arange(n) / sr
+    return hp(rng.standard_normal(n), 8000, sr, 2) * np.exp(-t / (0.05 if open_ else 0.010)) * 0.4
+
+
+def _shaker(rng, sr):
+    n = int(0.06 * sr)
+    t = np.arange(n) / sr
+    b, a = butter(2, [4000 / (sr / 2), 9000 / (sr / 2)], btype="band")
+    return lfilter(b, a, rng.standard_normal(n)) * np.exp(-t / 0.02) * 0.3
+
+
+# =============================================================================
+# Patterns (composed riffs with 間 — rests are part of the phrase)
+# =============================================================================
+# bell riff: 2 bars of (step, pool_idx, oct_mul, vel); bar 2 leaves space
+BELL_RIFF = [
+    (0, 0, 1.0, 1.00), (3, 1, 1.0, 0.80), (6, 2, 1.0, 0.90),
+    (10, 1, 0.5, 0.70), (14, 3, 1.0, 0.85),
+    (16 + 2, 2, 1.0, 0.80), (16 + 7, 0, 2.0, 0.55), (16 + 8, 1, 1.0, 0.90),
+    (16 + 11, 3, 0.5, 0.75),
+]
+# bass groove: (step, oct_mul, dur_s, vel) — bouncing octaves, syncopated
+BASS_PAT = [
+    (0, 0.5, 0.30, 1.00), (3, 0.5, 0.12, 0.60), (6, 1.0, 0.15, 0.80),
+    (8, 0.5, 0.25, 0.90), (11, 1.0, 0.12, 0.70), (14, 0.5, 0.10, 0.50),
+]
+PLUCK_STEPS = [5, 13]                     # answers in the riff's gaps
+HAT_VEL = [0.85, 0.30, 0.55, 0.30] * 4    # 16-step velocity map
+
+
+def bar_activity(cfg):
+    """Arrangement: per-bar level (0..1) for each layer. The macro arc — intro →
+    groove → riff → breakdown (間) → full return → outro."""
+    B = cfg.bars
+    act = {k: np.zeros(B) for k in
+           ("pad", "air", "hats", "kick", "bass", "bell", "pluck", "clap")}
+
+    def on(key, b0, b1, v=1.0):
+        act[key][max(b0, 0):min(b1, B)] = v
+
+    on("pad", 0, B, 0.9)
+    on("air", 0, 8, 0.8)
+    on("hats", 8, 40); on("hats", 48, 82)
+    on("bass", 8, 40); on("bass", 48, 84)
+    on("kick", 12, 40); on("kick", 48, 82)
+    on("clap", 16, 40); on("clap", 48, 80)
+    on("bell", 16, 40); on("bell", 40, 48, 0.55); on("bell", 48, 80)
+    on("pluck", 24, 40); on("pluck", 56, 80)
+    on("air", 16, 18, 0.7); on("air", 24, 26, 0.7)
+    on("air", 40, 48, 1.0)                          # breakdown = voice floats
+    on("air", 56, 58, 0.8); on("air", 64, 66, 0.8); on("air", 72, 74, 0.8)
+    on("pad", 80, B, 0.7); on("air", 82, B, 0.9)
+    return act
+
+
+def smooth_gate(act_row, N, cfg):
+    """Upsample a per-bar activity row to sample rate with 1/4-bar cosine ramps."""
+    sr = cfg.sample_rate
+    bar_n = cfg.bar * sr
+    g = np.zeros(N)
+    edge = int(bar_n * 0.25)
+    for b, v in enumerate(act_row):
+        i0 = int(b * bar_n)
+        i1 = min(int((b + 1) * bar_n), N)
+        if i1 > i0:
+            g[i0:i1] = v
+    if edge > 1:                                     # soften every level change
+        w = 0.5 - 0.5 * np.cos(np.linspace(0, np.pi, edge))
+        k = np.concatenate([w, w[::-1]])
+        k /= k.sum()
+        g = np.convolve(g, k, mode="same")
+    return g
+
+
+# =============================================================================
+# compose
+# =============================================================================
+def compose(cfg: IdmConfig | None = None):
+    """Render the piece. Returns ``(stereo (n,2), meta)``. Deterministic."""
+    cfg = cfg or IdmConfig()
+    sr = cfg.sample_rate
+    N = int((cfg.bars * cfg.bar + 3.0) * sr)
+    scenes = build_scenes()
+    act = bar_activity(cfg)
+
+    r_bell = np.random.default_rng(cfg.seed + 11)
+    r_plk = np.random.default_rng(cfg.seed + 12)
+    r_bass = np.random.default_rng(cfg.seed + 13)
+    r_pad = np.random.default_rng(cfg.seed + 14)
+    r_air = np.random.default_rng(cfg.seed + 15)
+    r_drm = np.random.default_rng(cfg.seed + 16)
+    r_mst = np.random.default_rng(cfg.seed + 17)
+
+    def scene_of(bar):
+        return scenes[(bar // 16) % 2]
+
+    def put(dst, buf, t0, vel):
+        i0 = int(t0 * sr)
+        i1 = min(i0 + len(buf), N)
+        if 0 <= i0 < i1:
+            dst[i0:i1] += buf[: i1 - i0] * vel
+
+    swing = 0.14 * cfg.step
+
+    def stime(bar, step, human=0.0015, rng=r_drm):
+        t = bar * cfg.bar + step * cfg.step
+        if step % 2 == 1:
+            t += swing
+        return t + rng.uniform(-human, human)
+
+    # --- bell riff (FM mallet) — repeats WITH variation, and rests (間) -------
+    bell = np.zeros(N)
+    for phrase in range(0, cfg.bars, 2):
+        if act["bell"][min(phrase, cfg.bars - 1)] <= 0:
+            continue
+        pool = scene_of(phrase)["bell"]
+        mute = int(r_bell.integers(0, len(BELL_RIFF)))          # drop one hit / phrase
+        subst = int(r_bell.integers(0, len(BELL_RIFF)))         # re-pitch one hit
+        for j, (st, idx, octm, vel) in enumerate(BELL_RIFF):
+            if j == mute and r_bell.random() < 0.5:
+                continue
+            idx2 = int(r_bell.integers(0, len(pool))) if j == subst else idx
+            bar = phrase + st // 16
+            if bar >= cfg.bars:
+                continue
+            f = pool[idx2 % len(pool)] * octm
+            v = fm_bell(f, 0.9, sr, r_bell)
+            put(bell, v, stime(bar, st % 16, rng=r_bell),
+                vel * float(act["bell"][bar]))
+
+    # --- pluck answers (Karplus-Strong) in the gaps ---------------------------
+    plk = np.zeros(N)
+    for bar in range(cfg.bars):
+        a = float(act["pluck"][bar])
+        if a <= 0 or bar % 2 == 0:                              # answers on odd bars
+            continue
+        pool = scene_of(bar)["pluck"]
+        for s in PLUCK_STEPS:
+            if r_plk.random() < 0.75:
+                f = pool[int(r_plk.integers(0, len(pool)))]
+                v = ks_pluck(f, 0.7, sr, r_plk)
+                put(plk, v, stime(bar, s, rng=r_plk), 0.8 * a)
+
+    # --- bass groove (bouncing octaves, locked to the kick) -------------------
+    bass = np.zeros(N)
+    for bar in range(cfg.bars):
+        a = float(act["bass"][bar])
+        if a <= 0:
+            continue
+        root = scene_of(bar)["root"]
+        for (s, octm, dur, vel) in BASS_PAT:
+            if s == 14 and r_bass.random() < 0.35:              # occasional 間
+                continue
+            v = bass_note(root * octm, dur, sr)
+            put(bass, v, stime(bar, s, rng=r_bass), vel * a)
+
+    # --- pad + vocal air ------------------------------------------------------
+    pad = np.zeros(N)
+    for b0 in range(0, cfg.bars, 4):
+        a = float(np.max(act["pad"][b0:b0 + 4]))
+        if a <= 0:
+            continue
+        sc = scene_of(b0)
+        v = breathy_pad(sc["pad"], 4 * cfg.bar + 1.2, sr, r_pad)
+        put(pad, v, b0 * cfg.bar, a)
+
+    air = np.zeros(N)
+    for bar in range(cfg.bars):
+        a = float(act["air"][bar])
+        if a <= 0 or act["air"][max(bar - 1, 0)] > 0 and bar > 0:
+            continue                                             # start of a swell only
+        span = 1
+        while bar + span < cfg.bars and act["air"][bar + span] > 0:
+            span += 1
+        sc = scene_of(bar)
+        vw = "aah" if (bar // 8) % 2 == 0 else "ooh"
+        v = voice_air(sc["voice"], span * cfg.bar + 0.8, sr, r_air, vw)
+        put(air, v, bar * cfg.bar, a)
+
+    # --- drums (groove: swing, velocity map, ratchet fills) -------------------
+    drums = np.zeros(N)
+    rev_send = np.zeros(N)
+    kick_b, clap_b = _kick(r_drm, sr), _clap(r_drm, sr)
+    hatc, hato, shk = _hat(r_drm, sr), _hat(r_drm, sr, True), _shaker(r_drm, sr)
+    kick_times = []
+    for bar in range(cfg.bars):
+        ak, ah, ac = (float(act[k][bar]) for k in ("kick", "hats", "clap"))
+        ksteps = [0, 8] + ([6] if bar % 2 == 0 else [11])
+        if r_drm.random() < 0.25:
+            ksteps.append(3)
+        if ak > 0:
+            for s in ksteps:
+                t0 = stime(bar, s)
+                put(drums, kick_b, t0, ak * r_drm.uniform(0.92, 1.0))
+                kick_times.append(t0)
+        if ac > 0:
+            for s in (4, 12):
+                v = ac * r_drm.uniform(0.55, 0.7)
+                t0 = stime(bar, s)
+                put(drums, clap_b, t0, v)
+                put(rev_send, clap_b, t0, v)
+        if ah > 0:
+            for s in range(16):
+                if s == 14 and bar % 2 == 1:
+                    put(drums, hato, stime(bar, s), 0.45 * ah)
+                else:
+                    put(drums, hatc, stime(bar, s), HAT_VEL[s] * ah * r_drm.uniform(0.85, 1.0))
+                if s % 2 == 0:
+                    put(drums, shk, stime(bar, s), 0.5 * ah)
+            if bar % 8 == 7:                                     # ratchet fill
+                for k in range(4):
+                    put(drums, hatc, bar * cfg.bar + 15 * cfg.step + k * cfg.step / 4,
+                        0.5 * ah * (1 - k * 0.15))
+    drums = lp(drums, 12000, sr, 2)
+
+    # --- sidechain duck: pad/air/bass dip under each actual kick --------------
+    duck = np.ones(N)
+    dl = int(0.14 * sr)
+    dip = 1 - 0.45 * np.exp(-np.arange(dl) / (0.06 * sr))
+    for t0 in kick_times:
+        i0 = int(t0 * sr)
+        i1 = min(i0 + dl, N)
+        if i1 > i0:
+            duck[i0:i1] *= dip[: i1 - i0]
+    pad *= 0.55 + 0.45 * duck
+    air *= 0.6 + 0.4 * duck
+    bass *= 0.7 + 0.3 * duck
+
+    # --- mix / master ---------------------------------------------------------
+    send = hp(0.5 * pad + 0.9 * air + 0.55 * bell + 0.5 * plk + 0.9 * rev_send,
+              300, sr, 2)
+    wet = reverb(send, r_mst, sr, decay=0.6, length=2.2) * 0.30
+
+    mix = (0.30 * pad + 0.30 * air + 0.50 * bell + 0.36 * plk + 0.52 * bass
+           + 0.95 * drums + wet)
+    mix = hp(mix, 24, sr, 1)
+    mix = np.tanh(1.15 * mix) / np.tanh(1.15)
+    fi, fo = int(1.2 * sr), int(6.0 * sr)
+    mix[:fi] *= np.linspace(0, 1, fi)
+    mix[-fo:] *= np.linspace(1, 0, fo)
+    mix *= cfg.gain / max(float(np.max(np.abs(mix))), 1e-9)
+
+    # mono-safe M/S (same construction as solfeggio_composer): L+R == 2*mix
+    d = int(0.008 * sr)
+    side = np.concatenate([np.zeros(d), hp(mix, 1800, sr, 1)[:-d]])
+    stereo = np.stack([mix + 0.16 * side, mix - 0.16 * side], axis=1)
+    stereo *= cfg.gain / float(np.max(np.abs(stereo)))
+
+    meta = cfg.as_meta()
+    meta["frames"] = int(stereo.shape[0])
+    return stereo, meta
+
+
+# =============================================================================
+# CLI
+# =============================================================================
+def main(argv: Sequence[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        prog="namima.solfeggio_idm",
+        description="Offline solfeggio IDM composer (candidate; Xtal/On mood).",
+    )
+    p.add_argument("--out", default="idm.wav")
+    p.add_argument("--bars", type=int, default=88)
+    p.add_argument("--smoke", action="store_true", help="short 16-bar render")
+    p.add_argument("--bpm", type=float, default=114.0)
+    p.add_argument("--seed", type=int, default=852963)
+    p.add_argument("--gain", type=float, default=0.86)
+    args = p.parse_args(argv)
+
+    cfg = IdmConfig(bars=16 if args.smoke else args.bars,
+                    bpm=args.bpm, seed=args.seed, gain=args.gain)
+    stereo, meta = compose(cfg)
+    write_wav24(args.out, stereo, cfg.sample_rate)
+    print(f"wrote {args.out}  {stereo.shape[0] / cfg.sample_rate:.1f}s  "
+          f"bars={cfg.bars}  bpm={cfg.bpm}  seed={cfg.seed}  "
+          f"peak={float(np.max(np.abs(stereo))):.3f}")
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

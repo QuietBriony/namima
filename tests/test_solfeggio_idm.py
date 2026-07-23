@@ -75,8 +75,10 @@ def test_groove_and_bell_present():
     groove = seg(24)
     intro = seg(2)
     # the FM bell's strike band sits ABOVE the pad's 1700 Hz lowpass, so 2.5-5.5k
-    # isolates the riff (600-1000 is shared with pad harmonics — not a valid probe)
-    assert _band(groove, 2500, 5500) > 5 * _band(intro, 2500, 5500), "bell riff should enter"
+    # isolates the riff (600-1000 is shared with pad harmonics — not a valid probe).
+    # 3x, not stricter: since v0.5 the intro intentionally carries sparse sacred
+    # golden-angle chimes, which lift the baseline in this band.
+    assert _band(groove, 2500, 5500) > 3 * _band(intro, 2500, 5500), "bell riff should enter"
     assert _band(groove, 60, 250) > 1.5 * _band(intro, 60, 250), "kick should enter"
 
 

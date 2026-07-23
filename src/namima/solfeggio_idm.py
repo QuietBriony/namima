@@ -37,8 +37,9 @@ from scipy.signal import butter, lfilter
 from .generator import write_wav24, load_presets, preset_frequency
 from .solfeggio_composer import lp, hp, env_ar, reverb, VOWELS
 
-__version__ = "0.4.0-candidate"   # v0.4: pattern banks (break/riff/bass) rotating
-                                  # per section — Aphex-style rhythmic variety
+__version__ = "0.5.0-candidate"   # v0.5: sacred-geometry layer — 3-6-9 triads,
+                                  # golden-angle chime spiral, 3:4:5 polyrhythm,
+                                  # palindrome riff (神聖幾何学)
 TAU = 2.0 * np.pi
 
 
@@ -69,6 +70,22 @@ class IdmConfig:
             "bit_depth": 24, "channels": 2, "gain": self.gain,
             "pitch_system": "absolute-solfeggio-Hz (non-12-TET; presets.yaml)",
         }
+
+
+def sacred_triads(presets: dict | None = None) -> dict:
+    """The solfeggio set's own sacred geometry: grouped by digit root, the nine
+    frequencies form three 3-6-9 triads — {3: (174,417,741), 6: (285,528,852),
+    9: (396,639,963)} — an ~111 Hz lattice (all neighbour pairs differ by 111,
+    triad internals by 243/324), so a sounded triad carries slow shared beating.
+    Computed from presets.yaml, not re-typed."""
+    p = presets or load_presets()
+    tri: dict = {3: [], 6: [], 9: []}
+    for name, hz in p["frequencies"].items():
+        if not name.startswith("solfeggio_"):
+            continue
+        root = int(name.split("_")[1]) % 9 or 9
+        tri[root].append(float(hz))
+    return {k: tuple(sorted(v)) for k, v in tri.items()}
 
 
 def build_scenes(presets: dict | None = None) -> list[dict]:
@@ -358,6 +375,12 @@ BELL_RIFFS = {
         (0, 3, 1.0, 0.90), (6, 2, 1.0, 0.60), (20, 3, 2.0, 0.70),
         (28, 1, 1.0, 0.50),
     ],
+    "mirror": [                                 # time+pitch palindrome (鏡像対称)
+        (0, 0, 1.0, 0.90), (4, 1, 1.0, 0.70), (8, 2, 1.0, 0.80),
+        (12, 3, 1.0, 0.70),
+        (16, 3, 1.0, 0.70), (20, 2, 1.0, 0.80), (24, 1, 1.0, 0.70),
+        (28, 0, 1.0, 0.90),
+    ],
 }
 # break patterns: 32-slot (2-bar) hit lists per drum
 BREAK_PATTERNS = {
@@ -396,7 +419,7 @@ BASS_PATTERNS = {
 }
 # per-8-bar-section rotation (index = bar//8, wraps)
 BREAK_PLAN = ["xtal", "xtal", "xtal", "on", "on", "xtal", "on", "roll", "roll", "xtal", "xtal"]
-RIFF_PLAN = ["call", "call", "call", "rise", "rise", "call", "rise", "spark", "spark", "call", "call"]
+RIFF_PLAN = ["call", "call", "call", "rise", "rise", "mirror", "rise", "spark", "spark", "mirror", "call"]
 BASS_PLAN = ["bounce", "bounce", "bounce", "offbeat", "offbeat", "bounce", "offbeat", "roll16", "roll16", "bounce", "bounce"]
 PLUCK_STEPS = [5, 13]                     # answers in the riff's gaps
 
@@ -559,6 +582,47 @@ def compose(cfg: IdmConfig | None = None):
             v = ep_stab(chord, 0.7, sr, r_ep)
             put(ep, v, stime(bar, 14, rng=r_ep), 0.55 * a)
 
+    # --- sacred-geometry layer (神聖幾何学) -----------------------------------
+    # 3-6-9 triads rotate per section; golden-angle (phyllotaxis) chime spiral;
+    # 3:4:5 polyrhythm bells (interlocking circles — full mandala every 60
+    # beats); triad "organ" pads in the intro/breakdown/outro. Faint under the
+    # groove, blooming where the music opens.
+    r_sac = np.random.default_rng(cfg.seed + 20)
+    sac = np.zeros(N)
+    triads = sacred_triads()
+    fam_of = lambda bar: (3, 6, 9)[(bar // 8) % 3]              # noqa: E731
+    PHI = (5 ** 0.5 - 1) / 2                                    # 1/φ
+    sac_act = np.full(cfg.bars, 0.15)
+    sac_act[:12] = 0.7
+    sac_act[40:48] = 0.9
+    sac_act[80:] = 0.8
+    gk = 0                                                      # global spiral index
+    for sec in range(0, cfg.bars, 8):
+        tri = triads[fam_of(sec)]
+        a_lvl = float(np.max(sac_act[sec:min(sec + 8, cfg.bars)]))
+        span = min(8, cfg.bars - sec) * cfg.bar
+        for _ in range(6):                                      # golden-angle chimes
+            t0 = sec * cfg.bar + ((gk * PHI) % 1.0) * span
+            gk += 1
+            f = tri[gk % 3] * 2.0
+            put(sac, fm_bell(f, 1.4, sr, r_sac), t0,
+                0.45 * a_lvl * r_sac.uniform(0.8, 1.0))
+    for cyc, idx in ((3, 0), (4, 1), (5, 2)):                   # 3:4:5 circles
+        t = 0.0
+        while t < cfg.bars * cfg.bar:
+            bar_i = int(t // cfg.bar)
+            a_lvl = float(sac_act[min(bar_i, cfg.bars - 1)])
+            f = triads[fam_of(bar_i)][idx] * 2.0
+            put(sac, fm_bell(f, 1.1, sr, r_sac), t, 0.28 * a_lvl)
+            t += cyc * cfg.beat
+    for b0, b1 in ((0, 10), (40, 48), (80, cfg.bars)):          # triad organ
+        if b0 >= cfg.bars:
+            continue
+        b1 = min(b1, cfg.bars)
+        tri = triads[fam_of(b0)]
+        v = breathy_pad(list(tri), (b1 - b0) * cfg.bar + 1.5, sr, r_sac)
+        put(sac, v, b0 * cfg.bar, 0.55)
+
     # --- pad + vocal air ------------------------------------------------------
     pad = np.zeros(N)
     for b0 in range(0, cfg.bars, 4):
@@ -638,6 +702,7 @@ def compose(cfg: IdmConfig | None = None):
     pad *= 0.6 + 0.4 * duck
     air *= 0.65 + 0.35 * duck
     ep *= 0.7 + 0.3 * duck
+    sac *= 0.75 + 0.25 * duck
     bass *= 0.75 + 0.25 * duck
     subb *= 0.55 + 0.45 * duck                                  # gentle breathe
 
@@ -648,11 +713,11 @@ def compose(cfg: IdmConfig | None = None):
     # --- mix / master ---------------------------------------------------------
     # open, airy reverb (抜け感): longer tail, more sends, EP in the room
     send = hp(0.5 * pad + 0.9 * air + 0.6 * bell + 0.5 * plk + 0.55 * ep
-              + 0.28 * brk, 300, sr, 2)
+              + 0.7 * sac + 0.28 * brk, 300, sr, 2)
     wet = reverb(send, r_mst, sr, decay=0.85, length=2.8) * 0.33
 
     mix = (0.26 * pad + 0.30 * air + 0.46 * bell + 0.34 * plk + 0.36 * ep
-           + 0.92 * bus + 0.95 * drums + wet)
+           + 0.30 * sac + 0.92 * bus + 0.95 * drums + wet)
     mix = hp(mix, 21, sr, 1)
     # split-band master: lows stay LINEAR (no crush on full-range speakers),
     # only the upper band gets a light glue drive.

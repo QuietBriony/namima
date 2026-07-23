@@ -53,3 +53,13 @@ One line per decision. Newest last.
   editing the plan never shifts another pattern's sound. Phrase-level variation
   (mute/re-pitch) kept on top. Section band-profiles measured distinct; low-band
   crest 12.8 dB (softness kept); tests pass.
+- 2026-07-22 — `solfeggio_idm.py` v0.5 (user: "よりありがたい感じ、神聖幾何学的な
+  パターン"): sacred-geometry layer built from the set's own number structure —
+  `sacred_triads()` groups the nine solfeggio Hz by digit root into 3-6-9 triads
+  {3:(174,417,741), 6:(285,528,852), 9:(396,639,963)} (an ~111 Hz lattice with
+  shared 243/324 internal differences → slow communal beating), rotating per
+  section; golden-angle (1/φ) chime spiral (phyllotaxis low-discrepancy timing);
+  3:4:5 polyrhythm bells (LCM 60 beats = 15-bar mandala cycle); "mirror"
+  palindrome riff added to BELL_RIFFS and the plan. Blooms in intro/breakdown/
+  outro, faint (0.15) under the groove. Bell-riff smoke-test threshold 5x→3x
+  (the intro now intentionally carries sparse chimes). Human_gate on the sound.

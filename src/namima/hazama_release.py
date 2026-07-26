@@ -147,15 +147,15 @@ def render_pure(n: int, presets: dict, duration: float = 600.0) -> np.ndarray:
 # Low/high extremes are beatless and slowest; the middle carries a soft
 # heartbeat pulse. bars ≈ 580s * bpm / 240 keeps every track near 9:40.
 DRIFT_CHARACTER = {
-    174: dict(bpm=68.0, beat_mode="none", swell=1.50, bars=164),
-    285: dict(bpm=72.0, beat_mode="none", swell=1.40, bars=174),
-    396: dict(bpm=76.0, beat_mode="heartbeat", swell=1.30, bars=184),
-    417: dict(bpm=78.0, beat_mode="heartbeat", swell=1.25, bars=188),
-    528: dict(bpm=84.0, beat_mode="heartbeat", swell=1.20, bars=203),
-    639: dict(bpm=74.0, beat_mode="heartbeat", swell=1.30, bars=179),
-    741: dict(bpm=88.0, beat_mode="deep", swell=1.10, bars=213),
-    852: dict(bpm=70.0, beat_mode="none", swell=1.45, bars=169),
-    963: dict(bpm=66.0, beat_mode="none", swell=1.55, bars=160),
+    174: dict(bpm=68.0, beat_mode="none", swell=1.50, bars=164, space=2.6),
+    285: dict(bpm=72.0, beat_mode="none", swell=1.40, bars=174, space=2.4),
+    396: dict(bpm=76.0, beat_mode="heartbeat", swell=1.30, bars=184, space=1.8),
+    417: dict(bpm=78.0, beat_mode="heartbeat", swell=1.25, bars=188, space=1.7),
+    528: dict(bpm=84.0, beat_mode="heartbeat", swell=1.20, bars=203, space=1.6),
+    639: dict(bpm=74.0, beat_mode="heartbeat", swell=1.30, bars=179, space=1.9),
+    741: dict(bpm=88.0, beat_mode="deep", swell=1.10, bars=213, space=1.3),
+    852: dict(bpm=70.0, beat_mode="none", swell=1.45, bars=169, space=2.5),
+    963: dict(bpm=66.0, beat_mode="none", swell=1.55, bars=160, space=2.8),
 }
 
 

@@ -58,6 +58,7 @@ class ComposeConfig:
     use_voice: bool = True           # formant-synth wordless hum
     beat_mode: str = "deep"          # "deep" | "heartbeat" (sparse pulse) | "none"
     swell: float = 1.0               # >1.0 = ゆったり: longer melody/voice swells
+    space: float = 1.0               # >1.0 = deep hall/深宇宙: long dark tail
 
     @property
     def beat(self) -> float:
@@ -84,6 +85,7 @@ class ComposeConfig:
             "gain": self.gain,
             "beat_mode": self.beat_mode,
             "swell": self.swell,
+            "space": self.space,
             "use_bells": self.use_bells,
             "use_voice": self.use_voice,
             "pitch_system": "absolute-solfeggio-Hz (non-12-TET; presets.yaml)",
@@ -445,11 +447,11 @@ def synth_sparkle(N, cfg, rng, start_bar=4):
     return out * 0.5
 
 
-def reverb(x, rng, sr, decay=0.5, length=2.4):
+def reverb(x, rng, sr, decay=0.5, length=2.4, predelay=0.028):
     n = int(length * sr)
     t = np.arange(n) / sr
     ir = rng.standard_normal(n) * np.exp(-t / decay)
-    ir[: int(0.028 * sr)] = 0                              # 28ms pre-delay (clarity)
+    ir[: int(predelay * sr)] = 0                           # pre-delay (clarity/depth)
     ir /= np.sqrt(np.sum(ir ** 2))
     return fftconvolve(x, ir)[: len(x)]
 
@@ -524,7 +526,19 @@ def compose(cfg: ComposeConfig | None = None, blocks: list | None = None):
     # reverb send: high-passed so it stays clear (no low-mid wash)
     send = hp(0.45 * pad + 0.78 * mel + 0.95 * voc + 0.8 * rim_send
               + 0.6 * bell + 0.5 * spark, 300, sr, 2)
-    wet = reverb(send, rng_mst, sr) * 0.34
+    if cfg.space > 1.0:
+        # Deep hall / 深宇宙: the room stays for clarity, plus a LONG dark tail
+        # with a generous pre-delay. Depth reads fine on a mono phone speaker —
+        # it lives in decay time and tail darkness, not stereo width. The tail
+        # IR is energy-normalised, so wet level (not length) sets its weight.
+        tail = reverb(send, rng_mst, sr,
+                      decay=0.5 * (1.0 + 0.9 * cfg.space),
+                      length=2.4 * (1.0 + cfg.space),
+                      predelay=0.078)
+        tail = lp(tail, 2600, sr)          # halls eat highs as the tail decays
+        wet = reverb(send, rng_mst, sr) * 0.30 + tail * (0.14 * cfg.space)
+    else:
+        wet = reverb(send, rng_mst, sr) * 0.34
 
     mix = pad + sub + drums + 0.7 * mel + 0.62 * voc + 0.26 * bell + 0.14 * spark + wet
     mix = hp(mix, 24, sr, 1)

@@ -308,7 +308,11 @@ def _kick(rng, sr):
     click = hp(rng.standard_normal(n), 1500, sr, 2) * np.exp(-t / 0.004) * 0.25
     k = body + sub + thump + knock + click
     k = hp(k, 70, sr, 1)                                   # HP before saturation
-    return np.tanh(2.2 * k) * 0.85                         # more drive → survives on phone
+    # Round drive (was tanh 2.2): 2.2 sprayed odd harmonics through the phone's
+    # audible 120-500 Hz band — heard as "響きが荒い" on sleep material. 1.5
+    # keeps the phone-audible thump/knock partials (they're synthesized above,
+    # not created by the drive) while the edge softens.
+    return np.tanh(1.5 * k) / np.tanh(1.5) * 0.82
 
 
 def _rim(rng, sr):
@@ -492,7 +496,13 @@ def compose(cfg: ComposeConfig | None = None, blocks: list | None = None):
 
     mix = pad + sub + drums + 0.7 * mel + 0.62 * voc + 0.26 * bell + 0.14 * spark + wet
     mix = hp(mix, 24, sr, 1)
-    mix = np.tanh(1.1 * mix) / np.tanh(1.1)
+    # Split-band glue: NEVER saturate the low band. Solfeggio triads are
+    # non-integer ratios, so bass/sub beating periodically swells the sum; a
+    # full-band tanh flattened those swells (measured p10 crest 4.6 dB — near
+    # square) and sprayed harsh intermod up the spectrum. Lows stay linear
+    # (peak-normalised later); only >150 Hz gets the gentle tanh glue.
+    low = lp(mix, 150, sr, 2)
+    mix = low + np.tanh(1.1 * (mix - low)) / np.tanh(1.1)
     fi, fo = int(2.0 * sr), int(7.0 * sr)
     mix[:fi] *= np.linspace(0, 1, fi)
     mix[-fo:] *= np.linspace(1, 0, fo)

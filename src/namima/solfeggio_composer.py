@@ -56,6 +56,8 @@ class ComposeConfig:
     gain: float = 0.86               # peak-normalisation target (headroom)
     use_bells: bool = True           # 888 Hz bell accents
     use_voice: bool = True           # formant-synth wordless hum
+    beat_mode: str = "deep"          # "deep" | "heartbeat" (sparse pulse) | "none"
+    swell: float = 1.0               # >1.0 = ゆったり: longer melody/voice swells
 
     @property
     def beat(self) -> float:
@@ -80,6 +82,8 @@ class ComposeConfig:
             "bit_depth": 24,
             "channels": 2,
             "gain": self.gain,
+            "beat_mode": self.beat_mode,
+            "swell": self.swell,
             "use_bells": self.use_bells,
             "use_voice": self.use_voice,
             "pitch_system": "absolute-solfeggio-Hz (non-12-TET; presets.yaml)",
@@ -221,7 +225,7 @@ def melody_events(cfg, rng, blocks, start_bar=4):
         prev = f
         if force:
             leap_in = int(rng.integers(4, 7))
-        dur = rng.uniform(2.0, 4.2)
+        dur = rng.uniform(2.0, 4.2) * cfg.swell
         ev.append((t, dur, f))
         t += dur * rng.uniform(0.55, 0.85)                       # overlap → cross-fade
         k += 1
@@ -236,13 +240,22 @@ def synth_melody(ev, N, cfg, rng):
         i1 = min(i0 + int(dur * sr), N)
         if i1 <= i0:
             continue
-        t = np.arange(i1 - i0) / sr
-        vib = 1.0 + 0.004 * np.sin(TAU * 4.4 * t + rng.uniform(0, TAU))   # ±~7c
-        ph = TAU * f * np.cumsum(vib) / sr
-        v = np.sin(ph) + 0.25 * np.sin(2 * ph) + 0.12 * np.sin(3 * ph)
+        n = i1 - i0
+        t = np.arange(n) / sr
+        # 3-voice unison ±4 cents: a bare sine reads as 耳に障る when exposed —
+        # the slow beating between detuned copies gives a soft chorus body.
+        v = np.zeros(n)
+        for det in (-1.0, 0.0, 1.0):
+            fd = f * (2.0 ** (det * 4.0 / 1200.0))
+            vib = 1.0 + 0.004 * np.sin(TAU * 4.4 * t + rng.uniform(0, TAU))
+            ph = TAU * fd * np.cumsum(vib) / sr
+            v += (np.sin(ph) + 0.15 * np.sin(2 * ph) + 0.05 * np.sin(3 * ph)) / 3.0
         trem = 0.82 + 0.18 * np.sin(TAU * 0.16 * t + rng.uniform(0, TAU))
-        out[i0:i1] += v * env_ar(i1 - i0, 0.4, 0.6, sr) * trem
-    return lp(out, 2600, sr) * 0.5
+        # equal-loudness tilt: high solfeggio tones (852/963) pierce at equal
+        # amplitude — pull them back so every swell lands as softly as 174/285.
+        g = min(1.0, (400.0 / max(f, 1.0)) ** 0.35)
+        out[i0:i1] += v * env_ar(n, 0.8, 1.2, sr) * trem * g
+    return lp(out, 2200, sr) * 0.5
 
 
 # =============================================================================
@@ -259,7 +272,7 @@ def voice_events(cfg, rng, blocks, start_bar=12):
         blk = block_of(int(t // cfg.bar), cfg, blocks, lag=2)
         f = _pick_near(prev, blk["voice"], rng)
         prev = f
-        ev.append((t, rng.uniform(3.0, 5.5), f, vw[k % len(vw)]))
+        ev.append((t, rng.uniform(3.0, 5.5) * cfg.swell, f, vw[k % len(vw)]))
         k += 1
         t += ev[-1][1] * rng.uniform(0.9, 1.5)
     return ev
@@ -333,6 +346,8 @@ def synth_drums(N, cfg, rng):
     sr = cfg.sample_rate
     out = np.zeros(N)
     rev = np.zeros(N)
+    if cfg.beat_mode == "none":
+        return out, rev
     kick, rim, hatc, hato = _kick(rng, sr), _rim(rng, sr), _hat(rng, sr), _hat(rng, sr, True)
 
     def place(buf, dst, step, bar, vel, swing=True):
@@ -342,6 +357,19 @@ def synth_drums(N, cfg, rng):
         i1 = min(i0 + len(buf), N)
         if 0 <= i0 < i1:
             dst[i0:i1] += buf[: i1 - i0] * vel
+
+    if cfg.beat_mode == "heartbeat":
+        # Sparse sleep pulse: soft downbeat kick, echo kick every other bar,
+        # a rare distant rim. No hats — their 16th tick is what reads as "IDM".
+        for bar in range(cfg.bars):
+            place(kick, out, 0, bar, rng.uniform(0.70, 0.80), swing=False)
+            if bar % 2 == 1:
+                place(kick, out, 8, bar, rng.uniform(0.38, 0.48), swing=False)
+            if bar % 4 == 2:
+                v = rng.uniform(0.28, 0.38)
+                place(rim, out, 12, bar, v)
+                place(rim, rev, 12, bar, v)
+        return lp(out, 9000, sr) * 0.95, rev
 
     for bar in range(cfg.bars):
         place(kick, out, 0, bar, rng.uniform(0.95, 1.0))
@@ -478,9 +506,13 @@ def compose(cfg: ComposeConfig | None = None, blocks: list | None = None):
 
     # gentle sidechain: duck pad low-mids + sub under the kick (gated by g_drums,
     # so the breakdown — where the kick is gone — does not phantom-pump).
+    # No kick → no duck (beatless tracks must not phantom-pump either).
     duck = np.ones(N)
+    duck_steps = {"deep": ((0, 0.5), (8, 0.42)),
+                  "heartbeat": ((0, 0.3),),
+                  "none": ()}[cfg.beat_mode]
     for bar in range(cfg.bars):
-        for step, dep in ((0, 0.5), (8, 0.42)):
+        for step, dep in duck_steps:
             i = int((bar * cfg.bar + step * cfg.step) * sr)
             if i >= N:
                 continue
@@ -490,7 +522,7 @@ def compose(cfg: ComposeConfig | None = None, blocks: list | None = None):
     sub = sub * duck
 
     # reverb send: high-passed so it stays clear (no low-mid wash)
-    send = hp(0.45 * pad + 0.6 * mel + 0.95 * voc + 0.8 * rim_send
+    send = hp(0.45 * pad + 0.78 * mel + 0.95 * voc + 0.8 * rim_send
               + 0.6 * bell + 0.5 * spark, 300, sr, 2)
     wet = reverb(send, rng_mst, sr) * 0.34
 

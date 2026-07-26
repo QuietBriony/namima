@@ -142,8 +142,28 @@ def render_pure(n: int, presets: dict, duration: float = 600.0) -> np.ndarray:
     return out
 
 
-def render_drift(n: int, presets: dict, bars: int = 232) -> np.ndarray:
-    cfg = sc.ComposeConfig(bars=bars, seed=200000 + n)
+# Per-Hz drift character (v2, 2026-07-26): each frequency gets its own tempo,
+# beat mode and swell so the 9 tracks stop sounding like one piece transposed.
+# Low/high extremes are beatless and slowest; the middle carries a soft
+# heartbeat pulse. bars ≈ 580s * bpm / 240 keeps every track near 9:40.
+DRIFT_CHARACTER = {
+    174: dict(bpm=68.0, beat_mode="none", swell=1.50, bars=164),
+    285: dict(bpm=72.0, beat_mode="none", swell=1.40, bars=174),
+    396: dict(bpm=76.0, beat_mode="heartbeat", swell=1.30, bars=184),
+    417: dict(bpm=78.0, beat_mode="heartbeat", swell=1.25, bars=188),
+    528: dict(bpm=84.0, beat_mode="heartbeat", swell=1.20, bars=203),
+    639: dict(bpm=74.0, beat_mode="heartbeat", swell=1.30, bars=179),
+    741: dict(bpm=88.0, beat_mode="deep", swell=1.10, bars=213),
+    852: dict(bpm=70.0, beat_mode="none", swell=1.45, bars=169),
+    963: dict(bpm=66.0, beat_mode="none", swell=1.55, bars=160),
+}
+
+
+def render_drift(n: int, presets: dict, bars: int | None = None) -> np.ndarray:
+    ch = dict(DRIFT_CHARACTER[n])
+    if bars is not None:                      # --quick smoke override
+        ch["bars"] = bars
+    cfg = sc.ComposeConfig(seed=200000 + n, **ch)
     stereo, _ = sc.compose(cfg, blocks=drift_blocks_for(n, presets))
     return stereo
 
@@ -192,7 +212,7 @@ def run_track(n: int, mood: str, out_dir: Path, presets: dict, quick: bool) -> P
     if mood == "pure":
         stereo = render_pure(n, presets, duration=30.0 if quick else 600.0)
     elif mood == "drift":
-        stereo = render_drift(n, presets, bars=16 if quick else 232)
+        stereo = render_drift(n, presets, bars=16 if quick else None)
     else:
         stereo = render_groove(n, presets, bars=16 if quick else 88)
     stereo = master(stereo, mood)

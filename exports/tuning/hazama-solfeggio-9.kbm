@@ -1,0 +1,23 @@
+! hazama-solfeggio-9.kbm
+! Size of map
+9
+! First / last MIDI note to retune
+0
+127
+! Middle note (scale degree 0 lands here)
+60
+! Reference note and its frequency
+60
+174.000000
+! Scale degree that formally equals an octave
+9
+! Mapping
+0
+1
+2
+3
+4
+5
+6
+7
+8

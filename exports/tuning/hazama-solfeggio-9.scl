@@ -1,0 +1,14 @@
+! hazama-solfeggio-9.scl
+!
+hazama solfeggio 9-per-octave (absolute Hz, non-12-TET)
+ 9
+!
+ 108.463484  ! 741 Hz folded
+ 223.695749  ! 396 Hz folded
+ 313.152093  ! 417 Hz folded
+ 350.119349  ! 852 Hz folded
+ 562.138190  ! 963 Hz folded
+ 721.740748  ! 528 Hz folded
+ 854.249536  ! 285 Hz folded
+ 1052.074350  ! 639 Hz folded
+ 1200.000000  ! 348 Hz folded

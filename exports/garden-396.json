@@ -1,0 +1,274 @@
+{
+  "contract_version": "1.0",
+  "source_track_id": "hazama-396-drift",
+  "frequency_hz": 396.0,
+  "deterministic_seed": 200396,
+  "duration_seconds": 581.052632,
+  "sections": [
+    {
+      "id": "settle",
+      "start_seconds": 0.0,
+      "end_seconds": 145.263158
+    },
+    {
+      "id": "drift",
+      "start_seconds": 145.263158,
+      "end_seconds": 290.526316
+    },
+    {
+      "id": "open",
+      "start_seconds": 290.526316,
+      "end_seconds": 435.789474
+    },
+    {
+      "id": "return",
+      "start_seconds": 435.789474,
+      "end_seconds": 581.052632
+    }
+  ],
+  "energy_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.836
+    },
+    {
+      "time_seconds": 12.188594,
+      "value": 0.9396
+    },
+    {
+      "time_seconds": 24.377188,
+      "value": 0.9222
+    },
+    {
+      "time_seconds": 36.565782,
+      "value": 0.9488
+    },
+    {
+      "time_seconds": 48.754376,
+      "value": 0.9325
+    },
+    {
+      "time_seconds": 60.942971,
+      "value": 0.9259
+    },
+    {
+      "time_seconds": 73.131565,
+      "value": 0.9198
+    },
+    {
+      "time_seconds": 85.320159,
+      "value": 0.9546
+    },
+    {
+      "time_seconds": 97.508753,
+      "value": 0.9403
+    },
+    {
+      "time_seconds": 109.697347,
+      "value": 0.9318
+    },
+    {
+      "time_seconds": 121.885941,
+      "value": 0.962
+    },
+    {
+      "time_seconds": 134.074535,
+      "value": 0.9024
+    },
+    {
+      "time_seconds": 146.263129,
+      "value": 0.9962
+    },
+    {
+      "time_seconds": 158.451723,
+      "value": 0.9524
+    },
+    {
+      "time_seconds": 170.640317,
+      "value": 0.9494
+    },
+    {
+      "time_seconds": 182.828912,
+      "value": 0.9608
+    },
+    {
+      "time_seconds": 195.017506,
+      "value": 0.9443
+    },
+    {
+      "time_seconds": 207.2061,
+      "value": 0.9867
+    },
+    {
+      "time_seconds": 219.394694,
+      "value": 0.9493
+    },
+    {
+      "time_seconds": 231.583288,
+      "value": 0.9644
+    },
+    {
+      "time_seconds": 243.771882,
+      "value": 0.9519
+    },
+    {
+      "time_seconds": 255.960476,
+      "value": 0.9706
+    },
+    {
+      "time_seconds": 268.14907,
+      "value": 0.9676
+    },
+    {
+      "time_seconds": 280.337664,
+      "value": 0.9452
+    },
+    {
+      "time_seconds": 292.526259,
+      "value": 0.9002
+    },
+    {
+      "time_seconds": 304.714853,
+      "value": 0.9609
+    },
+    {
+      "time_seconds": 316.903447,
+      "value": 0.9179
+    },
+    {
+      "time_seconds": 329.092041,
+      "value": 0.9412
+    },
+    {
+      "time_seconds": 341.280635,
+      "value": 0.9034
+    },
+    {
+      "time_seconds": 353.469229,
+      "value": 0.9343
+    },
+    {
+      "time_seconds": 365.657823,
+      "value": 0.9169
+    },
+    {
+      "time_seconds": 377.846417,
+      "value": 0.9091
+    },
+    {
+      "time_seconds": 390.035011,
+      "value": 0.9668
+    },
+    {
+      "time_seconds": 402.223605,
+      "value": 0.9033
+    },
+    {
+      "time_seconds": 414.4122,
+      "value": 0.9345
+    },
+    {
+      "time_seconds": 426.600794,
+      "value": 0.9036
+    },
+    {
+      "time_seconds": 438.789388,
+      "value": 0.9644
+    },
+    {
+      "time_seconds": 450.977982,
+      "value": 0.995
+    },
+    {
+      "time_seconds": 463.166576,
+      "value": 0.9662
+    },
+    {
+      "time_seconds": 475.35517,
+      "value": 0.9666
+    },
+    {
+      "time_seconds": 487.543764,
+      "value": 0.9873
+    },
+    {
+      "time_seconds": 499.732358,
+      "value": 0.9614
+    },
+    {
+      "time_seconds": 511.920952,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 524.109546,
+      "value": 0.9504
+    },
+    {
+      "time_seconds": 536.298141,
+      "value": 0.9841
+    },
+    {
+      "time_seconds": 548.486735,
+      "value": 0.9531
+    },
+    {
+      "time_seconds": 560.675329,
+      "value": 0.9699
+    },
+    {
+      "time_seconds": 572.863923,
+      "value": 0.7125
+    },
+    {
+      "time_seconds": 581.052632,
+      "value": 0.7125
+    }
+  ],
+  "tension_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 145.263158,
+      "value": 0.5234
+    },
+    {
+      "time_seconds": 290.526316,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 435.789474,
+      "value": 0.5234
+    },
+    {
+      "time_seconds": 581.052632,
+      "value": 0.5234
+    }
+  ],
+  "palette_hint": {
+    "colors_srgb": [
+      "#22301F",
+      "#4E6B3A",
+      "#8FA86B",
+      "#D8DCC0"
+    ],
+    "mood_tags": [
+      "morning",
+      "bamboo",
+      "columns"
+    ]
+  },
+  "camera_motion_hint": {
+    "mode": "push_in",
+    "amount": 0.25
+  },
+  "garden_motif": {
+    "id": "bamboo_garden",
+    "tags": [
+      "bamboo",
+      "columns",
+      "wind-path"
+    ]
+  }
+}

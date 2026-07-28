@@ -1,0 +1,274 @@
+{
+  "contract_version": "1.0",
+  "source_track_id": "hazama-285-drift",
+  "frequency_hz": 285.0,
+  "deterministic_seed": 200285,
+  "duration_seconds": 580.0,
+  "sections": [
+    {
+      "id": "settle",
+      "start_seconds": 0.0,
+      "end_seconds": 143.333333
+    },
+    {
+      "id": "drift",
+      "start_seconds": 143.333333,
+      "end_seconds": 286.666667
+    },
+    {
+      "id": "open",
+      "start_seconds": 286.666667,
+      "end_seconds": 430.0
+    },
+    {
+      "id": "return",
+      "start_seconds": 430.0,
+      "end_seconds": 580.0
+    }
+  ],
+  "energy_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.8512
+    },
+    {
+      "time_seconds": 12.166667,
+      "value": 0.8951
+    },
+    {
+      "time_seconds": 24.333333,
+      "value": 0.9302
+    },
+    {
+      "time_seconds": 36.5,
+      "value": 0.916
+    },
+    {
+      "time_seconds": 48.666667,
+      "value": 0.9232
+    },
+    {
+      "time_seconds": 60.833333,
+      "value": 0.9807
+    },
+    {
+      "time_seconds": 73.0,
+      "value": 0.9303
+    },
+    {
+      "time_seconds": 85.166667,
+      "value": 0.9804
+    },
+    {
+      "time_seconds": 97.333333,
+      "value": 0.9163
+    },
+    {
+      "time_seconds": 109.5,
+      "value": 0.9469
+    },
+    {
+      "time_seconds": 121.666667,
+      "value": 0.9289
+    },
+    {
+      "time_seconds": 133.833333,
+      "value": 0.9424
+    },
+    {
+      "time_seconds": 146.0,
+      "value": 0.9257
+    },
+    {
+      "time_seconds": 158.166667,
+      "value": 0.9632
+    },
+    {
+      "time_seconds": 170.333333,
+      "value": 0.9713
+    },
+    {
+      "time_seconds": 182.5,
+      "value": 0.9505
+    },
+    {
+      "time_seconds": 194.666667,
+      "value": 0.9431
+    },
+    {
+      "time_seconds": 206.833333,
+      "value": 0.9446
+    },
+    {
+      "time_seconds": 219.0,
+      "value": 0.9514
+    },
+    {
+      "time_seconds": 231.166667,
+      "value": 0.9917
+    },
+    {
+      "time_seconds": 243.333333,
+      "value": 0.9547
+    },
+    {
+      "time_seconds": 255.5,
+      "value": 0.9258
+    },
+    {
+      "time_seconds": 267.666667,
+      "value": 0.9743
+    },
+    {
+      "time_seconds": 279.833333,
+      "value": 0.9068
+    },
+    {
+      "time_seconds": 292.0,
+      "value": 0.9292
+    },
+    {
+      "time_seconds": 304.166667,
+      "value": 0.9087
+    },
+    {
+      "time_seconds": 316.333333,
+      "value": 0.9656
+    },
+    {
+      "time_seconds": 328.5,
+      "value": 0.9245
+    },
+    {
+      "time_seconds": 340.666667,
+      "value": 0.9734
+    },
+    {
+      "time_seconds": 352.833333,
+      "value": 0.8962
+    },
+    {
+      "time_seconds": 365.0,
+      "value": 0.9722
+    },
+    {
+      "time_seconds": 377.166667,
+      "value": 0.9151
+    },
+    {
+      "time_seconds": 389.333333,
+      "value": 0.9303
+    },
+    {
+      "time_seconds": 401.5,
+      "value": 0.8719
+    },
+    {
+      "time_seconds": 413.666667,
+      "value": 0.9349
+    },
+    {
+      "time_seconds": 425.833333,
+      "value": 0.9582
+    },
+    {
+      "time_seconds": 438.0,
+      "value": 0.9605
+    },
+    {
+      "time_seconds": 450.166667,
+      "value": 0.9934
+    },
+    {
+      "time_seconds": 462.333333,
+      "value": 0.9625
+    },
+    {
+      "time_seconds": 474.5,
+      "value": 0.9504
+    },
+    {
+      "time_seconds": 486.666667,
+      "value": 0.9588
+    },
+    {
+      "time_seconds": 498.833333,
+      "value": 0.9528
+    },
+    {
+      "time_seconds": 511.0,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 523.166667,
+      "value": 0.9616
+    },
+    {
+      "time_seconds": 535.333333,
+      "value": 0.9427
+    },
+    {
+      "time_seconds": 547.5,
+      "value": 0.965
+    },
+    {
+      "time_seconds": 559.666667,
+      "value": 0.9232
+    },
+    {
+      "time_seconds": 571.833333,
+      "value": 0.7369
+    },
+    {
+      "time_seconds": 580.0,
+      "value": 0.7369
+    }
+  ],
+  "tension_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 143.333333,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 286.666667,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 430.0,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 580.0,
+      "value": 0.0
+    }
+  ],
+  "palette_hint": {
+    "colors_srgb": [
+      "#1B2338",
+      "#6B6350",
+      "#C8B996",
+      "#E0A45C"
+    ],
+    "mood_tags": [
+      "early morning, raking light",
+      "raked-sand",
+      "concentric-ripples"
+    ]
+  },
+  "camera_motion_hint": {
+    "mode": "drift",
+    "amount": 0.13
+  },
+  "garden_motif": {
+    "id": "karesansui_ripples",
+    "tags": [
+      "raked-sand",
+      "concentric-ripples",
+      "low-sun"
+    ]
+  }
+}

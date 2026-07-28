@@ -1,0 +1,273 @@
+{
+  "contract_version": "1.0",
+  "source_track_id": "hazama-852-drift",
+  "frequency_hz": 852.0,
+  "deterministic_seed": 200852,
+  "duration_seconds": 579.428571,
+  "sections": [
+    {
+      "id": "settle",
+      "start_seconds": 0.0,
+      "end_seconds": 144.0
+    },
+    {
+      "id": "drift",
+      "start_seconds": 144.0,
+      "end_seconds": 288.0
+    },
+    {
+      "id": "open",
+      "start_seconds": 288.0,
+      "end_seconds": 432.0
+    },
+    {
+      "id": "return",
+      "start_seconds": 432.0,
+      "end_seconds": 579.428571
+    }
+  ],
+  "energy_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.8825
+    },
+    {
+      "time_seconds": 12.154762,
+      "value": 0.9604
+    },
+    {
+      "time_seconds": 24.309524,
+      "value": 0.9629
+    },
+    {
+      "time_seconds": 36.464286,
+      "value": 0.9692
+    },
+    {
+      "time_seconds": 48.619048,
+      "value": 0.9856
+    },
+    {
+      "time_seconds": 60.77381,
+      "value": 0.9785
+    },
+    {
+      "time_seconds": 72.928571,
+      "value": 0.9752
+    },
+    {
+      "time_seconds": 85.083333,
+      "value": 0.9519
+    },
+    {
+      "time_seconds": 97.238095,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 109.392857,
+      "value": 0.9586
+    },
+    {
+      "time_seconds": 121.547619,
+      "value": 0.983
+    },
+    {
+      "time_seconds": 133.702381,
+      "value": 0.9373
+    },
+    {
+      "time_seconds": 145.857143,
+      "value": 0.8429
+    },
+    {
+      "time_seconds": 158.011905,
+      "value": 0.8673
+    },
+    {
+      "time_seconds": 170.166667,
+      "value": 0.8653
+    },
+    {
+      "time_seconds": 182.321429,
+      "value": 0.8727
+    },
+    {
+      "time_seconds": 194.47619,
+      "value": 0.8946
+    },
+    {
+      "time_seconds": 206.630952,
+      "value": 0.8477
+    },
+    {
+      "time_seconds": 218.785714,
+      "value": 0.8819
+    },
+    {
+      "time_seconds": 230.940476,
+      "value": 0.8408
+    },
+    {
+      "time_seconds": 243.095238,
+      "value": 0.8693
+    },
+    {
+      "time_seconds": 255.25,
+      "value": 0.8654
+    },
+    {
+      "time_seconds": 267.404762,
+      "value": 0.8879
+    },
+    {
+      "time_seconds": 279.559524,
+      "value": 0.8586
+    },
+    {
+      "time_seconds": 291.714286,
+      "value": 0.933
+    },
+    {
+      "time_seconds": 303.869048,
+      "value": 0.9424
+    },
+    {
+      "time_seconds": 316.02381,
+      "value": 0.9303
+    },
+    {
+      "time_seconds": 328.178571,
+      "value": 0.9525
+    },
+    {
+      "time_seconds": 340.333333,
+      "value": 0.9301
+    },
+    {
+      "time_seconds": 352.488095,
+      "value": 0.9285
+    },
+    {
+      "time_seconds": 364.642857,
+      "value": 0.9347
+    },
+    {
+      "time_seconds": 376.797619,
+      "value": 0.9361
+    },
+    {
+      "time_seconds": 388.952381,
+      "value": 0.9395
+    },
+    {
+      "time_seconds": 401.107143,
+      "value": 0.9392
+    },
+    {
+      "time_seconds": 413.261905,
+      "value": 0.9304
+    },
+    {
+      "time_seconds": 425.416667,
+      "value": 0.9069
+    },
+    {
+      "time_seconds": 437.571429,
+      "value": 0.8919
+    },
+    {
+      "time_seconds": 449.72619,
+      "value": 0.868
+    },
+    {
+      "time_seconds": 461.880952,
+      "value": 0.909
+    },
+    {
+      "time_seconds": 474.035714,
+      "value": 0.8894
+    },
+    {
+      "time_seconds": 486.190476,
+      "value": 0.8621
+    },
+    {
+      "time_seconds": 498.345238,
+      "value": 0.8828
+    },
+    {
+      "time_seconds": 510.5,
+      "value": 0.8756
+    },
+    {
+      "time_seconds": 522.654762,
+      "value": 0.898
+    },
+    {
+      "time_seconds": 534.809524,
+      "value": 0.8598
+    },
+    {
+      "time_seconds": 546.964286,
+      "value": 0.8948
+    },
+    {
+      "time_seconds": 559.119048,
+      "value": 0.8793
+    },
+    {
+      "time_seconds": 571.27381,
+      "value": 0.6796
+    },
+    {
+      "time_seconds": 579.428571,
+      "value": 0.6796
+    }
+  ],
+  "tension_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 144.0,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 288.0,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 432.0,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 579.428571,
+      "value": 0.0
+    }
+  ],
+  "palette_hint": {
+    "colors_srgb": [
+      "#241D3A",
+      "#4A4370",
+      "#8A86A8",
+      "#D8CFE0"
+    ],
+    "mood_tags": [
+      "dusk",
+      "clipped-clouds",
+      "haze-islands"
+    ]
+  },
+  "camera_motion_hint": {
+    "mode": "drift",
+    "amount": 0.11
+  },
+  "garden_motif": {
+    "id": "garden_above_clouds",
+    "tags": [
+      "clipped-clouds",
+      "haze-islands"
+    ]
+  }
+}

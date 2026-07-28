@@ -1,0 +1,274 @@
+{
+  "contract_version": "1.0",
+  "source_track_id": "hazama-963-drift",
+  "frequency_hz": 963.0,
+  "deterministic_seed": 200963,
+  "duration_seconds": 581.818182,
+  "sections": [
+    {
+      "id": "settle",
+      "start_seconds": 0.0,
+      "end_seconds": 145.454545
+    },
+    {
+      "id": "drift",
+      "start_seconds": 145.454545,
+      "end_seconds": 290.909091
+    },
+    {
+      "id": "open",
+      "start_seconds": 290.909091,
+      "end_seconds": 436.363636
+    },
+    {
+      "id": "return",
+      "start_seconds": 436.363636,
+      "end_seconds": 581.818182
+    }
+  ],
+  "energy_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.8121
+    },
+    {
+      "time_seconds": 12.204535,
+      "value": 0.8923
+    },
+    {
+      "time_seconds": 24.40907,
+      "value": 0.8761
+    },
+    {
+      "time_seconds": 36.613605,
+      "value": 0.9121
+    },
+    {
+      "time_seconds": 48.818141,
+      "value": 0.8761
+    },
+    {
+      "time_seconds": 61.022676,
+      "value": 0.9224
+    },
+    {
+      "time_seconds": 73.227211,
+      "value": 0.9315
+    },
+    {
+      "time_seconds": 85.431746,
+      "value": 0.9134
+    },
+    {
+      "time_seconds": 97.636281,
+      "value": 0.9455
+    },
+    {
+      "time_seconds": 109.840816,
+      "value": 0.9254
+    },
+    {
+      "time_seconds": 122.045351,
+      "value": 0.9055
+    },
+    {
+      "time_seconds": 134.249887,
+      "value": 0.8838
+    },
+    {
+      "time_seconds": 146.454422,
+      "value": 0.9265
+    },
+    {
+      "time_seconds": 158.658957,
+      "value": 0.9155
+    },
+    {
+      "time_seconds": 170.863492,
+      "value": 0.9609
+    },
+    {
+      "time_seconds": 183.068027,
+      "value": 0.9315
+    },
+    {
+      "time_seconds": 195.272562,
+      "value": 0.9624
+    },
+    {
+      "time_seconds": 207.477098,
+      "value": 0.9278
+    },
+    {
+      "time_seconds": 219.681633,
+      "value": 0.9313
+    },
+    {
+      "time_seconds": 231.886168,
+      "value": 0.9746
+    },
+    {
+      "time_seconds": 244.090703,
+      "value": 0.9196
+    },
+    {
+      "time_seconds": 256.295238,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 268.499773,
+      "value": 0.9604
+    },
+    {
+      "time_seconds": 280.704308,
+      "value": 0.9256
+    },
+    {
+      "time_seconds": 292.908844,
+      "value": 0.8836
+    },
+    {
+      "time_seconds": 305.113379,
+      "value": 0.8264
+    },
+    {
+      "time_seconds": 317.317914,
+      "value": 0.8524
+    },
+    {
+      "time_seconds": 329.522449,
+      "value": 0.8432
+    },
+    {
+      "time_seconds": 341.726984,
+      "value": 0.8549
+    },
+    {
+      "time_seconds": 353.931519,
+      "value": 0.8321
+    },
+    {
+      "time_seconds": 366.136054,
+      "value": 0.843
+    },
+    {
+      "time_seconds": 378.34059,
+      "value": 0.893
+    },
+    {
+      "time_seconds": 390.545125,
+      "value": 0.8421
+    },
+    {
+      "time_seconds": 402.74966,
+      "value": 0.8508
+    },
+    {
+      "time_seconds": 414.954195,
+      "value": 0.8193
+    },
+    {
+      "time_seconds": 427.15873,
+      "value": 0.8667
+    },
+    {
+      "time_seconds": 439.363265,
+      "value": 0.9791
+    },
+    {
+      "time_seconds": 451.5678,
+      "value": 0.9604
+    },
+    {
+      "time_seconds": 463.772336,
+      "value": 0.9559
+    },
+    {
+      "time_seconds": 475.976871,
+      "value": 0.9613
+    },
+    {
+      "time_seconds": 488.181406,
+      "value": 0.9821
+    },
+    {
+      "time_seconds": 500.385941,
+      "value": 0.9225
+    },
+    {
+      "time_seconds": 512.590476,
+      "value": 0.9379
+    },
+    {
+      "time_seconds": 524.795011,
+      "value": 0.9647
+    },
+    {
+      "time_seconds": 536.999546,
+      "value": 0.9361
+    },
+    {
+      "time_seconds": 549.204082,
+      "value": 0.9189
+    },
+    {
+      "time_seconds": 561.408617,
+      "value": 0.9285
+    },
+    {
+      "time_seconds": 573.613152,
+      "value": 0.7017
+    },
+    {
+      "time_seconds": 581.818182,
+      "value": 0.7017
+    }
+  ],
+  "tension_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 145.454545,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 290.909091,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 436.363636,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 581.818182,
+      "value": 1.0
+    }
+  ],
+  "palette_hint": {
+    "colors_srgb": [
+      "#0E1224",
+      "#2C3660",
+      "#8894C0",
+      "#EDEFF8"
+    ],
+    "mood_tags": [
+      "night, full moon",
+      "white-sand",
+      "moonlight"
+    ]
+  },
+  "camera_motion_hint": {
+    "mode": "static",
+    "amount": 0.05
+  },
+  "garden_motif": {
+    "id": "garden_of_light",
+    "tags": [
+      "white-sand",
+      "moonlight",
+      "geometric-sky"
+    ]
+  }
+}

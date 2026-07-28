@@ -1,0 +1,275 @@
+{
+  "contract_version": "1.0",
+  "source_track_id": "hazama-639-drift",
+  "frequency_hz": 639.0,
+  "deterministic_seed": 200639,
+  "duration_seconds": 580.540541,
+  "sections": [
+    {
+      "id": "settle",
+      "start_seconds": 0.0,
+      "end_seconds": 142.702703
+    },
+    {
+      "id": "drift",
+      "start_seconds": 142.702703,
+      "end_seconds": 285.405405
+    },
+    {
+      "id": "open",
+      "start_seconds": 285.405405,
+      "end_seconds": 428.108108
+    },
+    {
+      "id": "return",
+      "start_seconds": 428.108108,
+      "end_seconds": 580.540541
+    }
+  ],
+  "energy_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.8866
+    },
+    {
+      "time_seconds": 12.177914,
+      "value": 0.9404
+    },
+    {
+      "time_seconds": 24.355828,
+      "value": 0.9593
+    },
+    {
+      "time_seconds": 36.533741,
+      "value": 0.9566
+    },
+    {
+      "time_seconds": 48.711655,
+      "value": 0.9393
+    },
+    {
+      "time_seconds": 60.889569,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 73.067483,
+      "value": 0.9384
+    },
+    {
+      "time_seconds": 85.245397,
+      "value": 0.9868
+    },
+    {
+      "time_seconds": 97.423311,
+      "value": 0.9414
+    },
+    {
+      "time_seconds": 109.601224,
+      "value": 0.9805
+    },
+    {
+      "time_seconds": 121.779138,
+      "value": 0.9541
+    },
+    {
+      "time_seconds": 133.957052,
+      "value": 0.9696
+    },
+    {
+      "time_seconds": 146.134966,
+      "value": 0.9015
+    },
+    {
+      "time_seconds": 158.31288,
+      "value": 0.9398
+    },
+    {
+      "time_seconds": 170.490794,
+      "value": 0.9122
+    },
+    {
+      "time_seconds": 182.668707,
+      "value": 0.9324
+    },
+    {
+      "time_seconds": 194.846621,
+      "value": 0.922
+    },
+    {
+      "time_seconds": 207.024535,
+      "value": 0.8929
+    },
+    {
+      "time_seconds": 219.202449,
+      "value": 0.9205
+    },
+    {
+      "time_seconds": 231.380363,
+      "value": 0.8959
+    },
+    {
+      "time_seconds": 243.558277,
+      "value": 0.9191
+    },
+    {
+      "time_seconds": 255.73619,
+      "value": 0.9267
+    },
+    {
+      "time_seconds": 267.914104,
+      "value": 0.9087
+    },
+    {
+      "time_seconds": 280.092018,
+      "value": 0.9068
+    },
+    {
+      "time_seconds": 292.269932,
+      "value": 0.9387
+    },
+    {
+      "time_seconds": 304.447846,
+      "value": 0.9348
+    },
+    {
+      "time_seconds": 316.62576,
+      "value": 0.9485
+    },
+    {
+      "time_seconds": 328.803673,
+      "value": 0.9342
+    },
+    {
+      "time_seconds": 340.981587,
+      "value": 0.9375
+    },
+    {
+      "time_seconds": 353.159501,
+      "value": 0.9579
+    },
+    {
+      "time_seconds": 365.337415,
+      "value": 0.9307
+    },
+    {
+      "time_seconds": 377.515329,
+      "value": 0.9744
+    },
+    {
+      "time_seconds": 389.693243,
+      "value": 0.9267
+    },
+    {
+      "time_seconds": 401.871156,
+      "value": 0.9389
+    },
+    {
+      "time_seconds": 414.04907,
+      "value": 0.93
+    },
+    {
+      "time_seconds": 426.226984,
+      "value": 0.9032
+    },
+    {
+      "time_seconds": 438.404898,
+      "value": 0.9065
+    },
+    {
+      "time_seconds": 450.582812,
+      "value": 0.901
+    },
+    {
+      "time_seconds": 462.760726,
+      "value": 0.9084
+    },
+    {
+      "time_seconds": 474.938639,
+      "value": 0.8998
+    },
+    {
+      "time_seconds": 487.116553,
+      "value": 0.916
+    },
+    {
+      "time_seconds": 499.294467,
+      "value": 0.8923
+    },
+    {
+      "time_seconds": 511.472381,
+      "value": 0.9201
+    },
+    {
+      "time_seconds": 523.650295,
+      "value": 0.9095
+    },
+    {
+      "time_seconds": 535.828209,
+      "value": 0.9219
+    },
+    {
+      "time_seconds": 548.006122,
+      "value": 0.9034
+    },
+    {
+      "time_seconds": 560.184036,
+      "value": 0.9032
+    },
+    {
+      "time_seconds": 572.36195,
+      "value": 0.6732
+    },
+    {
+      "time_seconds": 580.540541,
+      "value": 0.6732
+    }
+  ],
+  "tension_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.6367
+    },
+    {
+      "time_seconds": 142.702703,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 285.405405,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 428.108108,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 580.540541,
+      "value": 0.0
+    }
+  ],
+  "palette_hint": {
+    "colors_srgb": [
+      "#2A2418",
+      "#5A4326",
+      "#A8763C",
+      "#E0B072"
+    ],
+    "mood_tags": [
+      "evening",
+      "tsukubai",
+      "lantern"
+    ]
+  },
+  "camera_motion_hint": {
+    "mode": "push_in",
+    "amount": 0.23
+  },
+  "garden_motif": {
+    "id": "roji_tea_garden",
+    "tags": [
+      "tsukubai",
+      "lantern",
+      "waiting-bench",
+      "between-people"
+    ]
+  }
+}

@@ -1,0 +1,274 @@
+{
+  "contract_version": "1.0",
+  "source_track_id": "hazama-528-drift",
+  "frequency_hz": 528.0,
+  "deterministic_seed": 200528,
+  "duration_seconds": 580.0,
+  "sections": [
+    {
+      "id": "settle",
+      "start_seconds": 0.0,
+      "end_seconds": 142.857143
+    },
+    {
+      "id": "drift",
+      "start_seconds": 142.857143,
+      "end_seconds": 285.714286
+    },
+    {
+      "id": "open",
+      "start_seconds": 285.714286,
+      "end_seconds": 428.571429
+    },
+    {
+      "id": "return",
+      "start_seconds": 428.571429,
+      "end_seconds": 580.0
+    }
+  ],
+  "energy_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.8456
+    },
+    {
+      "time_seconds": 12.166667,
+      "value": 0.9009
+    },
+    {
+      "time_seconds": 24.333333,
+      "value": 0.9446
+    },
+    {
+      "time_seconds": 36.5,
+      "value": 0.9314
+    },
+    {
+      "time_seconds": 48.666667,
+      "value": 0.9469
+    },
+    {
+      "time_seconds": 60.833333,
+      "value": 0.9298
+    },
+    {
+      "time_seconds": 73.0,
+      "value": 0.9778
+    },
+    {
+      "time_seconds": 85.166667,
+      "value": 0.9377
+    },
+    {
+      "time_seconds": 97.333333,
+      "value": 0.9393
+    },
+    {
+      "time_seconds": 109.5,
+      "value": 0.9494
+    },
+    {
+      "time_seconds": 121.666667,
+      "value": 0.9766
+    },
+    {
+      "time_seconds": 133.833333,
+      "value": 0.94
+    },
+    {
+      "time_seconds": 146.0,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 158.166667,
+      "value": 0.9378
+    },
+    {
+      "time_seconds": 170.333333,
+      "value": 0.9934
+    },
+    {
+      "time_seconds": 182.5,
+      "value": 0.9464
+    },
+    {
+      "time_seconds": 194.666667,
+      "value": 0.9917
+    },
+    {
+      "time_seconds": 206.833333,
+      "value": 0.9539
+    },
+    {
+      "time_seconds": 219.0,
+      "value": 0.971
+    },
+    {
+      "time_seconds": 231.166667,
+      "value": 0.9645
+    },
+    {
+      "time_seconds": 243.333333,
+      "value": 0.9334
+    },
+    {
+      "time_seconds": 255.5,
+      "value": 0.9583
+    },
+    {
+      "time_seconds": 267.666667,
+      "value": 0.9343
+    },
+    {
+      "time_seconds": 279.833333,
+      "value": 0.9557
+    },
+    {
+      "time_seconds": 292.0,
+      "value": 0.9661
+    },
+    {
+      "time_seconds": 304.166667,
+      "value": 0.9524
+    },
+    {
+      "time_seconds": 316.333333,
+      "value": 0.983
+    },
+    {
+      "time_seconds": 328.5,
+      "value": 0.9576
+    },
+    {
+      "time_seconds": 340.666667,
+      "value": 0.9697
+    },
+    {
+      "time_seconds": 352.833333,
+      "value": 0.9549
+    },
+    {
+      "time_seconds": 365.0,
+      "value": 0.9532
+    },
+    {
+      "time_seconds": 377.166667,
+      "value": 0.9583
+    },
+    {
+      "time_seconds": 389.333333,
+      "value": 0.9525
+    },
+    {
+      "time_seconds": 401.5,
+      "value": 0.9612
+    },
+    {
+      "time_seconds": 413.666667,
+      "value": 0.9526
+    },
+    {
+      "time_seconds": 425.833333,
+      "value": 0.9653
+    },
+    {
+      "time_seconds": 438.0,
+      "value": 0.9595
+    },
+    {
+      "time_seconds": 450.166667,
+      "value": 0.968
+    },
+    {
+      "time_seconds": 462.333333,
+      "value": 0.9767
+    },
+    {
+      "time_seconds": 474.5,
+      "value": 0.9663
+    },
+    {
+      "time_seconds": 486.666667,
+      "value": 0.9682
+    },
+    {
+      "time_seconds": 498.833333,
+      "value": 0.9588
+    },
+    {
+      "time_seconds": 511.0,
+      "value": 0.9905
+    },
+    {
+      "time_seconds": 523.166667,
+      "value": 0.9553
+    },
+    {
+      "time_seconds": 535.333333,
+      "value": 0.987
+    },
+    {
+      "time_seconds": 547.5,
+      "value": 0.9473
+    },
+    {
+      "time_seconds": 559.666667,
+      "value": 0.9804
+    },
+    {
+      "time_seconds": 571.833333,
+      "value": 0.6962
+    },
+    {
+      "time_seconds": 580.0,
+      "value": 0.6962
+    }
+  ],
+  "tension_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.2101
+    },
+    {
+      "time_seconds": 142.857143,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 285.714286,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 428.571429,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 580.0,
+      "value": 0.0
+    }
+  ],
+  "palette_hint": {
+    "colors_srgb": [
+      "#243A20",
+      "#4F7A32",
+      "#8FBF5A",
+      "#E3EBC8"
+    ],
+    "mood_tags": [
+      "midday, dappled light",
+      "moss-mounds",
+      "new-shoots"
+    ]
+  },
+  "camera_motion_hint": {
+    "mode": "push_in",
+    "amount": 0.29
+  },
+  "garden_motif": {
+    "id": "new_green_garden",
+    "tags": [
+      "moss-mounds",
+      "new-shoots",
+      "dappled-light"
+    ]
+  }
+}

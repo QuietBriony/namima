@@ -1,0 +1,274 @@
+{
+  "contract_version": "1.0",
+  "source_track_id": "hazama-417-drift",
+  "frequency_hz": 417.0,
+  "deterministic_seed": 200417,
+  "duration_seconds": 578.461538,
+  "sections": [
+    {
+      "id": "settle",
+      "start_seconds": 0.0,
+      "end_seconds": 144.615385
+    },
+    {
+      "id": "drift",
+      "start_seconds": 144.615385,
+      "end_seconds": 289.230769
+    },
+    {
+      "id": "open",
+      "start_seconds": 289.230769,
+      "end_seconds": 433.846154
+    },
+    {
+      "id": "return",
+      "start_seconds": 433.846154,
+      "end_seconds": 578.461538
+    }
+  ],
+  "energy_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.8567
+    },
+    {
+      "time_seconds": 12.134603,
+      "value": 0.9122
+    },
+    {
+      "time_seconds": 24.269206,
+      "value": 0.929
+    },
+    {
+      "time_seconds": 36.40381,
+      "value": 0.9457
+    },
+    {
+      "time_seconds": 48.538413,
+      "value": 0.9462
+    },
+    {
+      "time_seconds": 60.673016,
+      "value": 0.9441
+    },
+    {
+      "time_seconds": 72.807619,
+      "value": 0.9442
+    },
+    {
+      "time_seconds": 84.942222,
+      "value": 0.9278
+    },
+    {
+      "time_seconds": 97.076825,
+      "value": 0.9316
+    },
+    {
+      "time_seconds": 109.211429,
+      "value": 0.9308
+    },
+    {
+      "time_seconds": 121.346032,
+      "value": 0.9327
+    },
+    {
+      "time_seconds": 133.480635,
+      "value": 0.9143
+    },
+    {
+      "time_seconds": 145.615238,
+      "value": 0.9754
+    },
+    {
+      "time_seconds": 157.749841,
+      "value": 0.9661
+    },
+    {
+      "time_seconds": 169.884444,
+      "value": 0.9797
+    },
+    {
+      "time_seconds": 182.019048,
+      "value": 0.9778
+    },
+    {
+      "time_seconds": 194.153651,
+      "value": 0.9674
+    },
+    {
+      "time_seconds": 206.288254,
+      "value": 0.972
+    },
+    {
+      "time_seconds": 218.422857,
+      "value": 0.9672
+    },
+    {
+      "time_seconds": 230.55746,
+      "value": 0.9808
+    },
+    {
+      "time_seconds": 242.692063,
+      "value": 0.9585
+    },
+    {
+      "time_seconds": 254.826667,
+      "value": 0.9753
+    },
+    {
+      "time_seconds": 266.96127,
+      "value": 0.9628
+    },
+    {
+      "time_seconds": 279.095873,
+      "value": 0.9583
+    },
+    {
+      "time_seconds": 291.230476,
+      "value": 0.9204
+    },
+    {
+      "time_seconds": 303.365079,
+      "value": 0.9113
+    },
+    {
+      "time_seconds": 315.499683,
+      "value": 0.9329
+    },
+    {
+      "time_seconds": 327.634286,
+      "value": 0.9165
+    },
+    {
+      "time_seconds": 339.768889,
+      "value": 0.915
+    },
+    {
+      "time_seconds": 351.903492,
+      "value": 0.9146
+    },
+    {
+      "time_seconds": 364.038095,
+      "value": 0.925
+    },
+    {
+      "time_seconds": 376.172698,
+      "value": 0.923
+    },
+    {
+      "time_seconds": 388.307302,
+      "value": 0.9141
+    },
+    {
+      "time_seconds": 400.441905,
+      "value": 0.9263
+    },
+    {
+      "time_seconds": 412.576508,
+      "value": 0.8965
+    },
+    {
+      "time_seconds": 424.711111,
+      "value": 0.9073
+    },
+    {
+      "time_seconds": 436.845714,
+      "value": 0.9691
+    },
+    {
+      "time_seconds": 448.980317,
+      "value": 0.9436
+    },
+    {
+      "time_seconds": 461.114921,
+      "value": 0.9698
+    },
+    {
+      "time_seconds": 473.249524,
+      "value": 0.9481
+    },
+    {
+      "time_seconds": 485.384127,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 497.51873,
+      "value": 0.9602
+    },
+    {
+      "time_seconds": 509.653333,
+      "value": 0.9872
+    },
+    {
+      "time_seconds": 521.787937,
+      "value": 0.9789
+    },
+    {
+      "time_seconds": 533.92254,
+      "value": 0.973
+    },
+    {
+      "time_seconds": 546.057143,
+      "value": 0.9836
+    },
+    {
+      "time_seconds": 558.191746,
+      "value": 0.9494
+    },
+    {
+      "time_seconds": 570.326349,
+      "value": 0.7205
+    },
+    {
+      "time_seconds": 578.461538,
+      "value": 0.7205
+    }
+  ],
+  "tension_curve": [
+    {
+      "time_seconds": 0.0,
+      "value": 0.0
+    },
+    {
+      "time_seconds": 144.615385,
+      "value": 0.5337
+    },
+    {
+      "time_seconds": 289.230769,
+      "value": 1.0
+    },
+    {
+      "time_seconds": 433.846154,
+      "value": 0.5337
+    },
+    {
+      "time_seconds": 578.461538,
+      "value": 0.5337
+    }
+  ],
+  "palette_hint": {
+    "colors_srgb": [
+      "#1D3340",
+      "#3E6B78",
+      "#84A9A5",
+      "#D6E2DC"
+    ],
+    "mood_tags": [
+      "late morning",
+      "yarimizu",
+      "stepping-stones"
+    ]
+  },
+  "camera_motion_hint": {
+    "mode": "push_in",
+    "amount": 0.27
+  },
+  "garden_motif": {
+    "id": "water_garden",
+    "tags": [
+      "yarimizu",
+      "stepping-stones",
+      "flowing-water"
+    ]
+  }
+}

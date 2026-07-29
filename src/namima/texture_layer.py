@@ -39,6 +39,23 @@ __version__ = "0.1.0"
 
 DEFAULT_HIGHPASS_HZ = 800.0
 DEFAULT_LEVEL_DB = -22.0
+ROOT_BAND_CENTS = 350.0        # half-width of the band `root_impact` watches
+
+
+def highpass_for(root, floor_hz=DEFAULT_HIGHPASS_HZ, margin=1.06):
+    """Corner that clears the root band, never below ``floor_hz``.
+
+    A fixed 800 Hz was chosen on 174 Hz, where it sits more than two octaves
+    above the fundamental. It does not generalise: the root band reaches
+    root * 2**(350/1200), so for 741, 852 and 963 the fixed corner lands INSIDE
+    the band and the bed piles onto the very frequency the track is named after.
+    Measured across the nine, that showed up as root movement flipping sign and
+    growing with pitch (-0.043 dB at 174 up to +0.253 dB at 963).
+
+    Scaling with the root keeps 174 through 528 on the value that was approved
+    by ear and only lifts the corner where it was actually too low.
+    """
+    return max(float(floor_hz), float(root) * 2.0 ** (ROOT_BAND_CENTS / 1200.0) * margin)
 
 
 def read_wav(path):
@@ -132,8 +149,15 @@ def root_impact(core, mixed, sr, root, span_cents=350.0):
 
 
 def layer(core, bed, sr, root, level_db=DEFAULT_LEVEL_DB,
-          highpass_hz=DEFAULT_HIGHPASS_HZ, width=0.22, seed=174):
-    """Return (mixed, prepared_bed). ``core`` is never filtered or widened."""
+          highpass_hz=None, width=0.22, seed=174):
+    """Return (mixed, prepared_bed). ``core`` is never filtered or widened.
+
+    ``highpass_hz`` defaults to ``highpass_for(root)`` - pass a number only to
+    override it deliberately, because a fixed corner is wrong for at least
+    three of the nine frequencies.
+    """
+    if highpass_hz is None:
+        highpass_hz = highpass_for(root)
     bed = trim_edges(bed, sr)
     bed = seamless_loop(bed, sr)
 
@@ -163,7 +187,8 @@ def main(argv=None):
     parser.add_argument("--root", type=float, default=174.0)
     parser.add_argument("--level", type=float, default=DEFAULT_LEVEL_DB,
                         help="bed level relative to the core, dB")
-    parser.add_argument("--highpass", type=float, default=DEFAULT_HIGHPASS_HZ)
+    parser.add_argument("--highpass", type=float, default=None,
+                        help="override; defaults to highpass_for(root)")
     parser.add_argument("--width", type=float, default=0.22)
     parser.add_argument("--seconds", type=float, default=None,
                         help="render only the first N seconds (audition)")
@@ -183,7 +208,8 @@ def main(argv=None):
     impact = root_impact(core, mixed, sr, args.root)
     lo, hi = impact["root_band_hz"]
     print(f"core {len(core)/sr:.1f}s, bed at {args.level:+.0f} dB, "
-          f"high-passed {args.highpass:g} Hz, side/mid {side_to_mid(prepared):.2f}")
+          f"high-passed {args.highpass or highpass_for(args.root):g} Hz, "
+          f"side/mid {side_to_mid(prepared):.2f}")
     print(f"root band {lo:.0f}-{hi:.0f} Hz: {impact['root_delta_db']:+.2f} dB "
           f"({'clear' if abs(impact['root_delta_db']) <= 1.0 else 'COMPETING'})")
 

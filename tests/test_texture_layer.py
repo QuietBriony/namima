@@ -19,8 +19,11 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from namima.texture_layer import (  # noqa: E402
-    layer, resample_to, root_impact, seamless_loop, tile_to, trim_edges,
+    DEFAULT_HIGHPASS_HZ, ROOT_BAND_CENTS, highpass_for, layer, resample_to,
+    root_impact, seamless_loop, tile_to, trim_edges,
 )
+
+SOLFEGGIO = (174, 285, 396, 417, 528, 639, 741, 852, 963)
 
 SR = 44100
 ROOT = 174.0
@@ -50,6 +53,22 @@ def bed_clip(seconds=3.0, seed=5, with_fades=True):
         x[:fade] *= np.linspace(0, 1, fade)
         x[-fade:] *= np.linspace(1, 0, fade)
     return np.stack([x, x], axis=1)
+
+
+def test_highpass_clears_the_root_band_for_every_frequency():
+    """The bug this caught: a fixed 800 Hz corner sits inside the root band of
+    741, 852 and 963, so the bed landed on the fundamental for the top three."""
+    for hz in SOLFEGGIO:
+        band_top = hz * 2.0 ** (ROOT_BAND_CENTS / 1200.0)
+        assert highpass_for(hz) > band_top, (hz, highpass_for(hz), band_top)
+
+
+def test_highpass_keeps_the_approved_value_where_it_already_worked():
+    """174-528 were approved by ear at 800 Hz; the fix must not move them."""
+    for hz in (174, 285, 396, 417, 528):
+        assert highpass_for(hz) == DEFAULT_HIGHPASS_HZ, hz
+    for hz in (639, 741, 852, 963):
+        assert highpass_for(hz) > DEFAULT_HIGHPASS_HZ, hz
 
 
 def test_root_band_is_left_alone():

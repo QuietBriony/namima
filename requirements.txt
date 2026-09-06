@@ -16,3 +16,9 @@ scipy==1.17.1
 
 # dev-only (not needed to run the renderer; used to run tests/ under pytest):
 #   pytest==8.x
+
+# optional (delivery lane only, src/namima/deliver.py): mp3 / m4a encoding.
+# Preferred = a system `ffmpeg` on PATH (worker has one; `winget install ffmpeg`).
+# Fallback when there is no system ffmpeg (e.g. the ARM Surface): the bundled
+# binary from imageio-ffmpeg. Not imported by any renderer — output stays identical.
+#   imageio-ffmpeg>=0.5

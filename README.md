@@ -42,3 +42,19 @@ pip install -r requirements.txt
 PYTHONPATH=src python -m namima.generator --preset c3_128 --smoke --out drone.wav
 PYTHONPATH=src python -m pytest tests/     # or: python tests/test_generator.py
 ```
+
+## Delivery lane (any PC — Surface / worker / studio)
+
+`namima.deliver` turns a render into the shared hand-off packet
+(`-master.wav` / `-iphone.m4a` / `-handoff.md` with SHA-256 + seed recipe) and
+drops it in the Google Drive folder every machine syncs (`マイドライブ/AI連携/Music`,
+override with `NAMIMA_HANDOFF_DIR`). CPU-only, deterministic, no GPU.
+
+```bash
+python scripts/deliver.py doctor                     # deps / ffmpeg / Drive dir / render speed on THIS machine
+python scripts/deliver.py judge --name idm-ambient   # 3 x 90 s judgement clips (beatless / soft / idm) in parallel
+python scripts/deliver.py long  --name idm-ambient --mode idm --bars 144 --seed 174852
+```
+
+ffmpeg resolution: `NAMIMA_FFMPEG` → PATH → `imageio-ffmpeg` (optional) → none (wav only).
+Judgement clips deliver only the m4a + handoff; `long` delivers the full packet.

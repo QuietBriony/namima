@@ -58,3 +58,11 @@ python scripts/deliver.py long  --name idm-ambient --mode idm --bars 144 --seed 
 
 ffmpeg resolution: `NAMIMA_FFMPEG` → PATH → `imageio-ffmpeg` (optional) → none (wav only).
 Judgement clips deliver only the m4a + handoff; `long` delivers the full packet.
+
+Catalogue + audition reel (same hand-off dir):
+
+```bash
+python scripts/catalog_deliveries.py                          # deliveries/CATALOG.md + catalog.csv from catalog.json + files on disk
+python scripts/catalog_deliveries.py --set-verdict <packet> "採用。酸をもう少し前へ"   # record the human verdict
+python scripts/audition_reel.py --plan deliveries/reel-plan-v1.json   # one m4a + cue sheet of every packet's key passage
+```

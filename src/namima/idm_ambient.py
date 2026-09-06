@@ -232,19 +232,24 @@ def motif_events(cfg: AmbientConfig, rng: np.random.Generator, pool_n: int,
 # render
 # =============================================================================
 def _structure(cfg: AmbientConfig) -> dict:
-    """Bar map: lead from 8, drums from 12, a 4-bar breakdown once the form is
-    long enough (>= 32 bars), everything back after it."""
+    """Bar map: lead from 8, drums from 12, a 4-bar breakdown every 32 bars from
+    bar 24 once the form is long enough (>= 32 bars), and an 8-bar outro (drums
+    out, lead anchors only) on long forms (>= 64 bars).  A 36-bar render keeps
+    the single (24, 28) breakdown of the judgement clips."""
     b_lead, b_drums = 8, 12
-    breakdown = (24, 28) if cfg.bars >= 32 else None
-    return {"lead": b_lead, "drums": b_drums, "breakdown": breakdown}
+    breakdowns = [(b, b + 4) for b in range(24, cfg.bars - 8, 32)] if cfg.bars >= 32 else []
+    outro = cfg.bars - 8 if cfg.bars >= 64 else None
+    return {"lead": b_lead, "drums": b_drums, "breakdowns": breakdowns, "outro": outro}
+
+
+def _in_breakdown(bar: int, s: dict) -> bool:
+    if any(b0 <= bar < b1 for b0, b1 in s["breakdowns"]):
+        return True
+    return s["outro"] is not None and bar >= s["outro"]
 
 
 def _drums_on(bar: int, s: dict) -> bool:
-    if bar < s["drums"]:
-        return False
-    if s["breakdown"] and s["breakdown"][0] <= bar < s["breakdown"][1]:
-        return False
-    return True
+    return bar >= s["drums"] and not _in_breakdown(bar, s)
 
 
 def render(cfg: AmbientConfig | None = None, presets: dict | None = None):
@@ -297,7 +302,7 @@ def render(cfg: AmbientConfig | None = None, presets: dict | None = None):
     pool = lead_pool(scale, cfg.root_degree)
     lead = np.zeros(N)
     for (bar, step, p, dur_steps, vel) in motif_events(cfg, r_lead, len(pool), s["lead"]):
-        thin = s["breakdown"] and s["breakdown"][0] <= bar < s["breakdown"][1]
+        thin = _in_breakdown(bar, s)
         if thin and step % 8 != 0:
             continue                                          # breakdown: anchors only
         note = lead_note(pool[p], dur_steps * cfg.step + 0.05, sr, r_lead)
@@ -328,7 +333,7 @@ def render(cfg: AmbientConfig | None = None, presets: dict | None = None):
             for phrase in range(0, cfg.bars, 2):
                 if not _drums_on(phrase, s):
                     continue
-                inten = 0.35 if phrase < s["drums"] + 8 else 0.6
+                inten = 0.35 if phrase < s["drums"] + 8 else (0.6 if phrase < 64 else 0.75)
                 fill = (phrase % 8) == 6
                 put(drums, chop_break(loop, cfg, r_brk, inten, fill=fill), phrase * cfg.bar, 0.7)
         drums = lp(drums, 12000, sr, 2)

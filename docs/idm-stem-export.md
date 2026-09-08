@@ -57,3 +57,35 @@ python -m pytest tests/test_idm_stems.py -q
 静的・波形検証はSonar実操作や人の試聴を代替しません。
 既存音源、公開PWA、delivery catalogやverdictは更新せず、生成物はGitに追加しません。
 失敗した新規folderは検査用に残します。自動削除・上書き再開はしません。
+
+## 次の一周: 同じ演奏の「引き算」を聴き比べる
+
+`namima.stem_compare`は既存の完成packetをhash検証し、**再合成せず**にmixを比較します。
+元packet・元renderer・catalog・verdictには書き込みません。
+
+```powershell
+python -m namima.stem_compare --packet 'C:\your-audio-folder\idm-edit' --out-dir 'C:\your-audio-folder\new-comparison'
+```
+
+既定は元の30〜40秒（16小節・96 BPMのdrums区間）を4段階で比較:
+
+1. A: 元の7stemの配分。
+2. B: Aからpad直接音を−6 dB。
+3. C: Bからechoと共有reverbをそれぞれ−6 dB（残響のグループ操作）。
+4. D: Cからtextureをmute。
+
+全版でdrums / sub / leadのfader、pattern・音程・タイミングは不変です。
+音楽的な改善は未判定。全部ノレないならmixではなく元patternへ戻る、という判断材料にします。
+Aも完成masterではなく、stemから22 Hz HPFとfadeだけで作る比較用の基準。
+印刷済みの共有reverbはpartのmuteに追従せず、元masterのnonlinear処理とstereo拡張は省略します。
+
+出力は4つのフルWAV、42.25秒の比較reel、plan.json、LISTENING-NOTES.md、comparison.json。
+比較区間のRMSを最も静かな版へ減衰で揃え、全フルmix共通のsample-peak余裕を設けます。
+LUFS / true-peak測定や聴感音量の完全一致とは呼びません。源音全体は同じ長さ、reelに末尾gapは付けません。
+任意の`--ffmpeg <既存実行ファイルの絶対パス>`でAAC/M4Aも作成（`-n`で上書き拒否）。
+ffmpegの自動探索・downloadはしません。codec・hashは記録しますが実iPhone再生は人間確認です。
+
+`--plan <plan.json>`で区間や各partのfaderを指定できます（−60〜0 dB、nullはmute）。
+2〜6版、区間2〜60秒、元packetは5〜180秒・48 kHz / 24-bit / stereoに制限。
+LISTENING-NOTESのfader表とcomparison.jsonの比較gainからSonarで同じ調整を試せます。
+生成したWAVを全部同時に鳴らさず、一つずつ比較してください。

@@ -45,6 +45,13 @@ PYTHONPATH=src python -m pytest tests/     # or: python tests/test_generator.py
 
 ## Delivery lane (any PC — Surface / worker / studio)
 
+For **editable parts in Sonar**, the separate opt-in
+[IDM stem exporter](docs/idm-stem-export.md) creates seven premaster parts, two
+comparison WAVs and a recipe/manual in a new explicit local folder only.
+It preserves the existing master, does not launch playback or a DAW, and does not
+change the public PWA or the delivery catalogue below. This is an offline candidate;
+actual listening and DAW import still require human review.
+
 `namima.deliver` turns a render into the shared hand-off packet
 (`-master.wav` / `-iphone.m4a` / `-handoff.md` with SHA-256 + seed recipe) and
 drops it in the Google Drive folder every machine syncs (`マイドライブ/AI連携/Music`,

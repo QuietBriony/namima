@@ -252,8 +252,8 @@ def _drums_on(bar: int, s: dict) -> bool:
     return bar >= s["drums"] and not _in_breakdown(bar, s)
 
 
-def render(cfg: AmbientConfig | None = None, presets: dict | None = None):
-    """Render the piece. Returns ``(stereo (n,2) in [-1,1], meta)``. Deterministic."""
+def _render(cfg: AmbientConfig | None = None, presets: dict | None = None,
+            *, stems: dict | None = None):
     cfg = cfg or AmbientConfig()
     if cfg.mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}, got {cfg.mode!r}")
@@ -343,6 +343,12 @@ def render(cfg: AmbientConfig | None = None, presets: dict | None = None):
     # --- mix / master (same rails as the other namima composers)
     send = hp(0.5 * pad + 0.8 * lead + 0.4 * lead_echo + 0.25 * drums, 300, sr, 2)
     wet = reverb(send, r_mst, sr, decay=0.9, length=3.0, predelay=0.03) * 0.30
+    if stems is not None:
+        # Capture weighted contributions, not independently mastered/normalised
+        # tracks. Keep the original mix expression and RNG order unchanged.
+        stems.update(pad=0.30 * pad, lead=0.55 * lead,
+                     lead_echo=0.35 * lead_echo, sub=0.85 * sub,
+                     drums=0.90 * drums, texture=tex.copy(), reverb=wet.copy())
     mix = 0.30 * pad + 0.55 * lead + 0.35 * lead_echo + 0.85 * sub + 0.90 * drums + tex + wet
     mix = hp(mix, 22, sr, 1)
     low = lp(mix, 150, sr, 2)
@@ -367,6 +373,22 @@ def render(cfg: AmbientConfig | None = None, presets: dict | None = None):
     meta["frames"] = int(stereo.shape[0])
     meta["structure"] = s
     return stereo, meta
+
+
+def render(cfg: AmbientConfig | None = None, presets: dict | None = None):
+    """Render the piece. Returns ``(stereo (n,2) in [-1,1], meta)``. Deterministic."""
+    return _render(cfg, presets)
+
+
+def render_stems(cfg: AmbientConfig | None = None, presets: dict | None = None):
+    """Return ``(unchanged master, meta, weighted mono premaster parts)``.
+
+    Parts sum BEFORE the shared high-pass, nonlinear glue, fades, level control
+    and stereo widening. They do NOT sum to the finished master. No file I/O.
+    """
+    stems: dict[str, np.ndarray] = {}
+    stereo, meta = _render(cfg, presets, stems=stems)
+    return stereo, meta, stems
 
 
 # =============================================================================

@@ -21,7 +21,8 @@ python -m namima.idm_stems --out-dir 'C:\your-existing-audio-folder\new-idm-edit
 
 既定は16小節・96 BPM・idm・seed 174852（43秒、3秒tail込み）。
 leadは9小節目、drumsは13小節目からなので、8小節だけでは全パートを確認できません。
-`--bars` 1–64 / `--bpm` 40–240 / `--root-degree` 0–8 / `--gain` 0.71–0.95。
+`--mode` idm / soft / beatless / `--seed` 0–4294967289 / `--bars` 1–64 / `--bpm` 40–240 /
+`--root-degree` 0–8 / `--gain` 0.71–0.95。
 48 kHz固定、masterのfadeを収めるためtail込み5秒以上・180秒上限。
 これはメモリ使用の上限を設けた短い編集候補用で、
 長尺の全stem出力やGPU処理を自動で始めるものではありません。
@@ -34,6 +35,7 @@ leadは9小節目、drumsは13小節目からなので、8小節だけでは全�
 - `09-master-reference.wav`: 既存rendererと同じmaster。比較用で、stemに重ねません。
 - `recipe.json`: config / preset snapshot / source SHA-256 / Python・numpy・scipy版。
 - `HANDOFF.md`: パートの役割・Sonarへの手動取込・引き算の試聴案・再実行コマンド。
+  試聴案のpad −6 dBは下記比較toolの既定Bと同じ量。再実行コマンドのbpm / gainは丸めずに書きます。
 - `manifest.json`: file hash / format / frame数 / gain / 未判定項目。最後に書く完了マーカー。
 
 全WAVは24-bit PCM・48 kHz・stereo・同じ開始時刻と長さ。stemと08はdual monoです。
@@ -49,11 +51,15 @@ drums内のkick / rim / hat / breakはまだ1bus。MIDI・個別drum・.cwp・�
 ## 検証と境界
 
 ```powershell
-python -m pytest tests/test_idm_stems.py -q
+python -m pytest tests/test_idm_stems.py tests/test_stem_compare.py -q
 ```
 
-既定master不変（3モード・lead/drumsが鳴る構成）、gainと時刻整列、PCM roundtrip、
-既存path拒否、異常configの先行拒否、途中失敗と完了マーカー、hashを検証します。
+stem取得付きのrenderが同じcodeの`render()`と同じmasterを返すこと（3モード・lead/drumsが鳴る構成）、
+gainと時刻整列、PCM roundtrip、既存path拒否、異常config・planの先行拒否、途中失敗と完了マーカー、
+hash、HANDOFF再実行コマンドの数値がconfigと完全一致すること、comparison.jsonに絶対pathがないことを検証します。
+testは新しいcode同士の比較で、過去の承認済みrenderとは比べません。
+09のmaster referenceは出音を変えていない`idm_ambient.render`と同じ経路で作られ、
+承認済みrender（idm・36小節・既定seed）とのbyte一致は2026-09-23に手動で確認しました。
 静的・波形検証はSonar実操作や人の試聴を代替しません。
 既存音源、公開PWA、delivery catalogやverdictは更新せず、生成物はGitに追加しません。
 失敗した新規folderは検査用に残します。自動削除・上書き再開はしません。
@@ -87,5 +93,8 @@ ffmpegの自動探索・downloadはしません。codec・hashは記録します
 
 `--plan <plan.json>`で区間や各partのfaderを指定できます（−60〜0 dB、nullはmute）。
 2〜6版、区間2〜60秒、元packetは5〜180秒・48 kHz / 24-bit / stereoに制限。
+版のidは英数字とハイフン。大文字小文字だけ違うidの重複、`comparison-reel`、
+Windowsの予約名（CON / NUL / COM1など）は書き出し前に拒否します。
+comparison.jsonには元packetのfolder名とmanifest hashだけを記録し、絶対pathは残しません。
 LISTENING-NOTESのfader表とcomparison.jsonの比較gainからSonarで同じ調整を試せます。
 生成したWAVを全部同時に鳴らさず、一つずつ比較してください。

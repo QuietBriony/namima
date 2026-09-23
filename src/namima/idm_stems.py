@@ -13,6 +13,7 @@ import json
 import math
 from pathlib import Path
 import platform
+import sys
 from typing import Sequence
 
 import numpy as np
@@ -71,6 +72,25 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _robust_stdout() -> None:
+    """CLI entry: a narrow console (e.g. cp932, redirected) must not fail a finished job.
+
+    Only the error handler changes; unencodable characters are printed escaped.
+    """
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        try:
+            reconfigure(errors="backslashreplace")
+        except (OSError, ValueError):
+            pass
+
+
+def _exact(value: float) -> str:
+    """Lossless number text: short when that round-trips, otherwise repr."""
+    short = f"{value:g}"
+    return short if float(short) == value else repr(value)
+
+
 def _json_new(path: Path, data: dict) -> None:
     with path.open("x", encoding="utf-8", newline="\n") as handle:
         handle.write(json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + "\n")
@@ -82,7 +102,7 @@ def _handoff(cfg: AmbientConfig, frames: int, common_gain: float) -> str:
 これは既存offline生成器から新しく作った編集候補です。過去の納品WAVの分離・復元ではありません。
 音楽的な採用・実際のSonar読込・試聴は未判定。公開用の完成品でもありません。
 
-- {cfg.mode} / {cfg.bpm:g} BPM / 4拍子 / {cfg.bars}小節 + 3秒tail / {frames / cfg.sample_rate:.3f}秒
+- {cfg.mode} / {_exact(cfg.bpm)} BPM / 4拍子 / {cfg.bars}小節 + 3秒tail / {frames / cfg.sample_rate:.3f}秒
 - 全WAV: 48 kHz / 24-bit PCM / stereo / 同一開始・同一長
 - seed: {cfg.seed} / root degree: {cfg.root_degree}
 - stemとpremasterの共通gain: {common_gain:.12g}。個別正規化なし。
@@ -91,13 +111,14 @@ def _handoff(cfg: AmbientConfig, frames: int, common_gain: float) -> str:
 
 ## 最初の10分
 
-1. 新しい空のSonarプロジェクトを48 kHz・{cfg.bpm:g} BPM・4拍子にする。
+1. 新しい空のSonarプロジェクトを48 kHz・{_exact(cfg.bpm)} BPM・4拍子にする。
 2. `01-pad.wav`〜`07-reverb.wav`を別々のステレオ音声トラックへ読み込み、
    全て先頭（小節1・拍1）に揃える。自動ストレッチや個別正規化は使わない。
 3. フェーダー0 dB、pan中央、FXなしで開始。再生は人が低い音量から行う。
 4. `08-premaster-reference.wav`は比較用、`09-master-reference.wav`は完成処理後の参考。
    どちらもstemと同時に鳴らさず、最初はmute。二重再生すると音量・バランスが変わる。
-5. まずpadを3 dB下げ、textureをmute。drumsとsubのノリを聴いてからleadを戻す。
+5. まずpadを6 dB下げ（`namima.stem_compare`の既定Bと同じ量）、textureをmute。
+   drumsとsubのノリを聴いてからleadを戻す。
    この操作は提案であり、自動適用・採用済みではない。
 6. 別名のprojectとして保存し、感想を記録する。元のパケットは編集しない。
 
@@ -127,7 +148,7 @@ stemは最終fade前のため、編集時の端・切替にはfade / crossfade�
 同じcheckoutと依存環境で、namima repo rootから（PYTHONPATH=srcを設定して）:
 
 ```text
-python -m namima.idm_stems --out-dir <未使用の絶対パス> --mode {cfg.mode} --bars {cfg.bars} --bpm {cfg.bpm:g} --seed {cfg.seed} --root-degree {cfg.root_degree} --gain {cfg.gain:g}
+python -m namima.idm_stems --out-dir <未使用の絶対パス> --mode {cfg.mode} --bars {cfg.bars} --bpm {cfg.bpm!r} --seed {cfg.seed} --root-degree {cfg.root_degree} --gain {cfg.gain!r}
 ```
 
 これは手動実行用。sourceとpreset hashが違う場合は同一再現と扱わないでください。
@@ -212,6 +233,7 @@ def export_packet(out_dir: str | Path, cfg: AmbientConfig | None = None) -> dict
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    _robust_stdout()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", required=True, help="new absolute local folder; parent must exist")
     parser.add_argument("--mode", choices=MODES, default="idm")

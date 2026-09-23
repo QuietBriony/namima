@@ -2,6 +2,7 @@
 
 from dataclasses import asdict, replace
 import hashlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -132,6 +133,36 @@ def test_packet_roundtrip_completion_provenance_and_reproducibility(tmp_path, mo
     assert "--gain 0.86" in handoff and "二重再生" in handoff and "MIDI / .cwp" in handoff
     again = exporter.export_packet(tmp_path / "again", cfg)
     assert again == manifest  # no hidden timestamp, hostname or absolute path
+
+
+def test_handoff_command_reproduces_config_exactly(tmp_path, monkeypatch):
+    # :g-style rounding (6 significant digits) would silently change the render.
+    cfg = AmbientConfig(bars=16, bpm=133.33333, gain=0.8612345, mode="beatless",
+                        seed=7, root_degree=3)
+    handoff = exporter._handoff(cfg, exporter.validate_config(cfg), .5)
+    assert "133.33333 BPM" in handoff
+    command = [line for line in handoff.splitlines() if line.startswith("python -m namima.idm_stems ")]
+    assert len(command) == 1
+    argv = command[0].split()[3:]
+    options = dict(zip(argv[::2], argv[1::2]))
+    assert float(options["--bpm"]) == cfg.bpm and float(options["--gain"]) == cfg.gain
+    assert int(options["--bars"]) == cfg.bars and int(options["--seed"]) == cfg.seed
+    # The CLI must rebuild exactly the same config from that command line.
+    seen = []
+    monkeypatch.setattr(exporter, "export_packet", lambda out, c: seen.append(c) or {"assets": []})
+    argv[argv.index("--out-dir") + 1] = str(tmp_path / "again")
+    assert exporter.main(argv) == 0
+    assert seen == [cfg]
+
+
+def test_cli_report_survives_narrow_console_after_export(tmp_path, monkeypatch):
+    buffer = io.BytesIO()
+    console = io.TextIOWrapper(buffer, encoding="cp932")  # strict, like redirected Japanese Windows
+    monkeypatch.setattr(sys, "stdout", console)
+    monkeypatch.setattr(exporter, "export_packet", lambda out, cfg: {"assets": [None] * 9})
+    assert exporter.main(["--out-dir", str(tmp_path / "café")]) == 0
+    console.flush()
+    assert r"caf\xe9" in buffer.getvalue().decode("cp932")  # escaped, not a crash
 
 
 def test_failure_keeps_recipe_but_never_marks_complete(tmp_path, monkeypatch):

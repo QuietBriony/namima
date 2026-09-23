@@ -20,13 +20,18 @@ import numpy as np
 import scipy
 
 from .generator import write_wav24
-from .idm_stems import PARTS, sha256, _json_new
+from .idm_stems import PARTS, sha256, _json_new, _robust_stdout
 from .solfeggio_composer import hp
 
 SR = 48000
 MAX_FRAMES = SR * 180
 FILES = tuple(f"{i:02d}-{part}.wav" for i, part in enumerate(PARTS, 1)) + (
     "08-premaster-reference.wav", "09-master-reference.wav")
+REEL = "comparison-reel"  # written beside the variant WAVs, so not a variant id
+# Variant ids become "<id>.wav"; compare them the way Windows does (case-insensitive,
+# DOS device names) so a plan cannot pass validation and then collide mid-export.
+RESERVED_IDS = {REEL, "con", "prn", "aux", "nul",
+                *(f"{dev}{n}" for dev in ("com", "lpt") for n in range(1, 10))}
 
 
 def default_plan() -> dict:
@@ -126,9 +131,12 @@ def validate_plan(plan: dict, frames: int) -> tuple[int, int]:
         if not isinstance(v, dict) or set(v) != {"id", "label", "gains_db"}:
             raise ValueError("unexpected variant fields")
         name, label, gains = v.get("id"), v.get("label"), v.get("gains_db")
-        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,39}", name) or name in seen:
-            raise ValueError("invalid/duplicate variant id")
-        seen.add(name)
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,39}", name):
+            raise ValueError("invalid variant id")
+        key = name.casefold()
+        if key in seen or key in RESERVED_IDS:
+            raise ValueError("duplicate (case-insensitive) or reserved variant id")
+        seen.add(key)
         if not isinstance(label, str) or not 1 <= len(label) <= 100 or any(c in label for c in "\n\r|[]<>"):
             raise ValueError("invalid label")
         if not isinstance(gains, dict) or set(gains) != set(PARTS):
@@ -211,11 +219,11 @@ def export_comparison(packet: Path, out: Path, plan: dict, ffmpeg: Path | None =
         if i < len(audio) - 1:
             segments.append(gap)
             cursor += len(gap)
-    save("comparison-reel.wav", np.concatenate(segments))
+    save(REEL + ".wav", np.concatenate(segments))
     if ffmpeg is not None:
-        m4a = out / "comparison-reel.m4a"
+        m4a = out / (REEL + ".m4a")
         subprocess.run([str(ffmpeg), "-nostdin", "-n", "-hide_banner", "-loglevel", "error",
-                        "-i", str(out / "comparison-reel.wav"), "-c:a", "aac", "-b:a", "192k",
+                        "-i", str(out / (REEL + ".wav")), "-c:a", "aac", "-b:a", "192k",
                         "-movflags", "+faststart", str(m4a)], check=True, timeout=120)
         assets.append({"file": m4a.name, "sha256": sha256(m4a), "codec": "AAC 192k"})
     lines = ["# 引き算で磨く — 比較ノート", "", "## まず聴く", "",
@@ -247,7 +255,8 @@ def export_comparison(packet: Path, out: Path, plan: dict, ffmpeg: Path | None =
         handle.write("\n".join(lines))
     here = Path(__file__).parent
     manifest = {"schema_version": 1, "kind": "namima_stem_comparison", "complete": True,
-                "source_packet": str(packet.resolve()), "source_manifest_sha256": source_hash,
+                # Folder name only: an absolute path would leak the local user/drive.
+                "source_packet_name": packet.resolve().name, "source_manifest_sha256": source_hash,
                 "source_assets": source["assets"], "source_documents": source["documents"],
                 "tool_sha256": {name: sha256(here / name) for name in
                                 ("stem_compare.py", "idm_stems.py", "generator.py", "solfeggio_composer.py")},
@@ -261,6 +270,7 @@ def export_comparison(packet: Path, out: Path, plan: dict, ffmpeg: Path | None =
 
 
 def main(argv=None) -> int:
+    _robust_stdout()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--packet", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)

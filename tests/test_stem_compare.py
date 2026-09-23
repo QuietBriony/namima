@@ -1,6 +1,8 @@
 """Cheap fixture-based comparisons; no DAW, ffmpeg execution, or real playback."""
+import io
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
+import re
 import sys
 import wave
 
@@ -39,7 +41,8 @@ def test_default_plan_deltas_preserve_beat_and_pitches():
     assert all(v["gains_db"]["drums"] == v["gains_db"]["sub"] == v["gains_db"]["lead"] == 0 for v in variants)
 
 
-@pytest.mark.parametrize("case", ["nan", "negative", "too_long", "few", "many", "path", "duplicate", "boost", "bool", "missing_part", "label", "muted", "unknown_field", "unknown_variant", "bool_version"])
+@pytest.mark.parametrize("case", ["nan", "negative", "too_long", "few", "many", "path", "duplicate", "boost", "bool", "missing_part", "label", "muted", "unknown_field", "unknown_variant", "bool_version",
+                                  "case_duplicate", "reserved_reel", "reserved_reel_case", "device_name"])
 def test_bad_plan_refused_before_output(packet, tmp_path, case):
     plan = short_plan()
     if case == "nan": plan["gap_s"] = float("nan")
@@ -57,6 +60,11 @@ def test_bad_plan_refused_before_output(packet, tmp_path, case):
     if case == "unknown_field": plan["filter"] = 300
     if case == "unknown_variant": plan["variants"][0]["swing"] = .8
     if case == "bool_version": plan["schema_version"] = True
+    # Windows filenames are case-insensitive: "a-reference.wav" IS "A-reference.wav".
+    if case == "case_duplicate": plan["variants"][1]["id"] = plan["variants"][0]["id"].lower()
+    if case == "reserved_reel": plan["variants"][1]["id"] = "comparison-reel"
+    if case == "reserved_reel_case": plan["variants"][1]["id"] = "Comparison-Reel"
+    if case == "device_name": plan["variants"][1]["id"] = "NUL"
     target = tmp_path / "not-created"
     with pytest.raises(ValueError):
         compare.export_comparison(packet, target, plan)
@@ -109,6 +117,44 @@ def test_levels_determinism_nonmutation_and_roundtrip(packet, tmp_path):
         assert compare.sha256(out / name) == digest
     assert "M4A" not in (out / "LISTENING-NOTES.md").read_text(encoding="utf-8").split("## Sonar")[0]
     assert compare.export_comparison(packet, tmp_path / "again", short_plan()) == result
+
+
+def test_comparison_json_records_no_local_paths(packet, tmp_path):
+    out = tmp_path / "comparison"
+    compare.export_comparison(packet, out, short_plan())
+    text = (out / "comparison.json").read_text(encoding="utf-8")
+    data = json.loads(text)
+    assert data["source_packet_name"] == packet.name == "source"
+    assert "source_packet" not in data
+
+    def strings(value):
+        if isinstance(value, dict):
+            for key, item in value.items():
+                yield key
+                yield from strings(item)
+        elif isinstance(value, list):
+            for item in value:
+                yield from strings(item)
+        elif isinstance(value, str):
+            yield value
+
+    for value in strings(data):
+        assert not re.match(r"[A-Za-z]:", value), value  # drive letter
+        assert not value.startswith(("/", "\\", "~")), value
+        assert not PureWindowsPath(value).is_absolute() and not Path(value).is_absolute(), value
+    for local in {str(tmp_path), str(tmp_path.resolve()), str(packet), str(Path.home())}:
+        assert local not in text and json.dumps(local, ensure_ascii=False)[1:-1] not in text
+
+
+def test_cli_report_survives_narrow_console_after_export(tmp_path, monkeypatch):
+    buffer = io.BytesIO()
+    console = io.TextIOWrapper(buffer, encoding="cp932")  # strict, like redirected Japanese Windows
+    monkeypatch.setattr(sys, "stdout", console)
+    monkeypatch.setattr(compare, "export_comparison", lambda *a: {"assets": [None] * 5})
+    out = tmp_path / "café"
+    assert compare.main(["--packet", str(tmp_path / "source"), "--out-dir", str(out)]) == 0
+    console.flush()
+    assert r"caf\xe9" in buffer.getvalue().decode("cp932")  # escaped, not a crash
 
 
 def test_existing_path_and_missing_ffmpeg_leave_no_output(packet, tmp_path, monkeypatch):

@@ -107,6 +107,29 @@ def test_invalid_variation_rejected():
         render(AmbientConfig(bars=4, mode="idm", chop_max=1.5))
 
 
+def test_evolve_keeps_parent_drums_until_the_first_switch():
+    from namima.idm_ambient import render_stems
+    kw = dict(bars=36, mode="idm", pad_db=-6.0, drums_db=4.5)
+    _, _, parent = render_stems(AmbientConfig(**kw))
+    _, _, evo = render_stems(AmbientConfig(**kw, break_plan="evolve", chop_max=0.9))
+    cfg = AmbientConfig(**kw)
+    cut = int(20 * cfg.bar * cfg.sample_rate)          # "on" loop starts at bar 20 (drums 12 + 8)
+    assert np.array_equal(parent["drums"][:cut], evo["drums"][:cut])
+    assert not np.array_equal(parent["drums"][cut:], evo["drums"][cut:])
+
+
+def test_trims_from_lead_keep_the_intro_balance():
+    from namima.idm_ambient import render_stems
+    _, _, full = render_stems(AmbientConfig(bars=12, mode="idm"))
+    _, _, late = render_stems(AmbientConfig(bars=12, mode="idm", pad_db=-6.0, trims_from_lead=True))
+    cfg = AmbientConfig(bars=12)
+    intro = int((8 - 1) * cfg.bar * cfg.sample_rate)    # before the 1-bar ramp to the lead (bar 8)
+    after = int(9 * cfg.bar * cfg.sample_rate)
+    assert np.allclose(full["pad"][:intro], late["pad"][:intro])
+    r = np.sqrt(np.mean(late["pad"][after:] ** 2)) / np.sqrt(np.mean(full["pad"][after:] ** 2))
+    assert abs(20 * np.log10(r) + 6.0) < 0.05
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

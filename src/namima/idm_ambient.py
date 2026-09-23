@@ -74,6 +74,10 @@ class AmbientConfig:
     # xtal -> on -> roll across the form (bouncier, then jungle-ish snare work).
     break_plan: str = "xtal"
     chop_max: float = 0.75       # chop intensity of the last section (orig. 0.75)
+    # When True, the pad and shared-reverb trims only take effect from the bar
+    # the lead enters (1-bar ramp); the intro keeps the original balance so a
+    # phone speaker still hears the pad body before anything else is playing.
+    trims_from_lead: bool = False
 
     @property
     def beat(self) -> float:
@@ -113,6 +117,8 @@ class AmbientConfig:
             out["break_plan"] = self.break_plan
         if self.chop_max != 0.75:
             out["chop_max"] = self.chop_max
+        if self.trims_from_lead:
+            out["trims_from_lead"] = True
         return out
 
 
@@ -370,8 +376,11 @@ def _render(cfg: AmbientConfig | None = None, presets: dict | None = None,
         if cfg.mode == "idm":
             if cfg.break_plan == "xtal":
                 loop = synth_break_loop(cfg, r_brk, BREAK_PATTERNS["xtal"])
-            else:   # "evolve": three loops; RNG is only consumed differently off the default path
-                loops = {k: synth_break_loop(cfg, r_brk, BREAK_PATTERNS[k]) for k in ("xtal", "on", "roll")}
+            else:   # "evolve": the extra loops come from their own RNG so the chop decisions
+                    # (r_brk) stay identical to the plain xtal plan before the first switch
+                loops = {"xtal": synth_break_loop(cfg, r_brk, BREAK_PATTERNS["xtal"])}
+                r_evo = np.random.default_rng(cfg.seed + 7)
+                loops.update({k: synth_break_loop(cfg, r_evo, BREAK_PATTERNS[k]) for k in ("on", "roll")})
                 late = max(s["drums"] + 16, int(round(0.44 * cfg.bars)))   # 64/144 of the long form
             for phrase in range(0, cfg.bars, 2):
                 if not _drums_on(phrase, s):
@@ -392,6 +401,12 @@ def _render(cfg: AmbientConfig | None = None, presets: dict | None = None,
     send = hp(0.5 * pad + 0.8 * lead + 0.4 * lead_echo + 0.25 * drums, 300, sr, 2)
     wet = reverb(send, r_mst, sr, decay=0.9, length=3.0, predelay=0.03) * 0.30
     g = {k: cfg.mix_gain(k) for k in cfg.MIX_PARTS}
+    if cfg.trims_from_lead:      # pad / reverb trims ramp in over the bar before the lead
+        t_bar = np.arange(N) / sr / cfg.bar
+        ramp = np.clip(t_bar - (s["lead"] - 1), 0.0, 1.0)
+        for k in ("pad", "reverb"):
+            if g[k] != 1.0:
+                g[k] = 1.0 + (g[k] - 1.0) * ramp
     if stems is not None:
         # Capture weighted contributions, not independently mastered/normalised
         # tracks. Keep the original mix expression and RNG order unchanged.
@@ -464,11 +479,13 @@ def add_variation_args(p: argparse.ArgumentParser) -> None:
         p.add_argument(f"--{part}-db", type=float, default=0.0, help=f"{part} trim in dB (0 = original)")
     p.add_argument("--break-plan", choices=BREAK_PLANS, default="xtal")
     p.add_argument("--chop-max", type=float, default=0.75, help="chop intensity of the last section (0..1)")
+    p.add_argument("--trims-from-lead", action="store_true",
+                   help="apply pad/reverb trims only from the lead entry (keeps the intro full on phones)")
 
 
 def variation_kwargs(a) -> dict:
     kw = {f"{part}_db": getattr(a, f"{part}_db") for part in AmbientConfig.MIX_PARTS}
-    kw.update(break_plan=a.break_plan, chop_max=a.chop_max)
+    kw.update(break_plan=a.break_plan, chop_max=a.chop_max, trims_from_lead=a.trims_from_lead)
     return kw
 
 

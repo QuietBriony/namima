@@ -130,7 +130,8 @@ def handoff_md(base: str, meta: dict, files: dict[str, Path], recipe_cmd: str, n
               f"root_degree {meta.get('root_degree')}",
               f"- Pitch system: {meta.get('pitch_system')}",
               *([f"- Variation: mix_db {meta.get('mix_db', {})} · break_plan {meta.get('break_plan', 'xtal')} · "
-                 f"chop_max {meta.get('chop_max', 0.75)}"] if any(k in meta for k in ("mix_db", "break_plan", "chop_max")) else []),
+                 f"chop_max {meta.get('chop_max', 0.75)} · trims_from_lead {meta.get('trims_from_lead', False)}"]
+                if any(k in meta for k in ("mix_db", "break_plan", "chop_max", "trims_from_lead")) else []),
               f"- Re-render (any PC, CPU): `{recipe_cmd}`", ""]
     if st:
         lines += ["## Structure", "", f"- 1 bar = {bar_s:.2f} s",
@@ -271,6 +272,8 @@ def variation_cli(a) -> str:
         parts.append(f"--break-plan {a.break_plan}")
     if a.chop_max != 0.75:
         parts.append(f"--chop-max {a.chop_max!r}")
+    if a.trims_from_lead:
+        parts.append("--trims-from-lead")
     if a.tag:
         parts.append(f"--tag {a.tag}")
     return (" " + " ".join(parts)) if parts else ""

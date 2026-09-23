@@ -79,6 +79,34 @@ def test_motif_events_in_range():
         assert dur > 0 and 0.5 < vel < 1.1
 
 
+
+def test_zero_trims_are_byte_identical_to_default():
+    base, meta0 = render(AmbientConfig(bars=12, mode="idm"))
+    same, meta1 = render(AmbientConfig(bars=12, mode="idm", pad_db=0.0, lead_db=0.0, echo_db=0.0,
+                                       sub_db=0.0, drums_db=0.0, texture_db=0.0, reverb_db=0.0,
+                                       break_plan="xtal", chop_max=0.75))
+    assert np.array_equal(base, same)
+    assert "mix_db" not in meta0 and "break_plan" not in meta0 and "chop_max" not in meta0
+
+
+def test_trims_and_break_plan_change_the_render_and_are_recorded():
+    base, _ = render(AmbientConfig(bars=12, mode="idm"))
+    trimmed, meta = render(AmbientConfig(bars=12, mode="idm", pad_db=-6.0, drums_db=4.5))
+    evolved, meta2 = render(AmbientConfig(bars=36, mode="idm", break_plan="evolve", chop_max=0.9))
+    assert not np.array_equal(base, trimmed)
+    assert meta["mix_db"] == {"pad": -6.0, "drums": 4.5}
+    assert meta2["break_plan"] == "evolve" and meta2["chop_max"] == 0.9
+    assert np.isfinite(evolved).all() and float(np.max(np.abs(evolved))) <= 1.0
+
+
+def test_invalid_variation_rejected():
+    import pytest
+    with pytest.raises(ValueError):
+        render(AmbientConfig(bars=4, mode="idm", break_plan="amen"))
+    with pytest.raises(ValueError):
+        render(AmbientConfig(bars=4, mode="idm", chop_max=1.5))
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

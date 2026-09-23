@@ -29,9 +29,10 @@ from .tuning import build_scale
 from .solfeggio_composer import lp, hp, env_ar, reverb, _kick, _rim, _hat
 from .solfeggio_idm import sub_note, synth_break_loop, chop_break, BREAK_PATTERNS
 
-__version__ = "0.1.0-proto"
+__version__ = "0.2.0-proto"
 TAU = 2.0 * np.pi
 MODES = ("beatless", "soft", "idm")
+BREAK_PLANS = ("xtal", "evolve")
 
 # Scale degrees (0..8 of the folded solfeggio octave 174..319.5 Hz).
 # (0, 2, 3, 6, 8) ≈ 0 / 224 / 313 / 723 / 1052 cents — a minor-pentatonic-ish
@@ -58,6 +59,21 @@ class AmbientConfig:
     gain: float = 0.86
     mode: str = "soft"
     root_degree: int = 0
+    # Mix trims in dB applied to each part's contribution (0.0 = the original
+    # balance, byte-identical).  echo = dotted-8th lead echo, reverb = shared
+    # reverb return.  Loudness is re-normalised afterwards (RMS target), so
+    # these move the BALANCE, not the overall level.
+    pad_db: float = 0.0
+    lead_db: float = 0.0
+    echo_db: float = 0.0
+    sub_db: float = 0.0
+    drums_db: float = 0.0
+    texture_db: float = 0.0
+    reverb_db: float = 0.0
+    # idm mode only.  "xtal" = one laid-back break loop (original); "evolve" =
+    # xtal -> on -> roll across the form (bouncier, then jungle-ish snare work).
+    break_plan: str = "xtal"
+    chop_max: float = 0.75       # chop intensity of the last section (orig. 0.75)
 
     @property
     def beat(self) -> float:
@@ -78,7 +94,26 @@ class AmbientConfig:
             "sample_rate": self.sample_rate, "bit_depth": 24, "channels": 2,
             "gain": self.gain, "root_degree": self.root_degree,
             "pitch_system": "absolute-solfeggio-Hz (non-12-TET; presets.yaml)",
+            **self.variation_meta(),
         }
+
+    MIX_PARTS = ("pad", "lead", "echo", "sub", "drums", "texture", "reverb")
+
+    def mix_gain(self, part: str) -> float:
+        db = float(getattr(self, f"{part}_db"))
+        return 1.0 if db == 0.0 else 10.0 ** (db / 20.0)
+
+    def variation_meta(self) -> dict:
+        """Only non-default variation fields, so default renders keep their meta."""
+        out = {}
+        mix = {k: getattr(self, f"{k}_db") for k in self.MIX_PARTS if getattr(self, f"{k}_db") != 0.0}
+        if mix:
+            out["mix_db"] = mix
+        if self.break_plan != "xtal":
+            out["break_plan"] = self.break_plan
+        if self.chop_max != 0.75:
+            out["chop_max"] = self.chop_max
+        return out
 
 
 # =============================================================================
@@ -257,6 +292,10 @@ def _render(cfg: AmbientConfig | None = None, presets: dict | None = None,
     cfg = cfg or AmbientConfig()
     if cfg.mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}, got {cfg.mode!r}")
+    if cfg.break_plan not in BREAK_PLANS:
+        raise ValueError(f"break_plan must be one of {BREAK_PLANS}, got {cfg.break_plan!r}")
+    if not 0.0 <= cfg.chop_max <= 1.0:
+        raise ValueError("chop_max must be within 0..1")
     presets = presets or load_presets()
     scale = scale_hz(presets)
     sr = cfg.sample_rate
@@ -329,11 +368,20 @@ def _render(cfg: AmbientConfig | None = None, presets: dict | None = None,
             else:
                 put(drums, kick, stime(bar, 0), 0.6)          # weight under the break
         if cfg.mode == "idm":
-            loop = synth_break_loop(cfg, r_brk, BREAK_PATTERNS["xtal"])
+            if cfg.break_plan == "xtal":
+                loop = synth_break_loop(cfg, r_brk, BREAK_PATTERNS["xtal"])
+            else:   # "evolve": three loops; RNG is only consumed differently off the default path
+                loops = {k: synth_break_loop(cfg, r_brk, BREAK_PATTERNS[k]) for k in ("xtal", "on", "roll")}
+                late = max(s["drums"] + 16, int(round(0.44 * cfg.bars)))   # 64/144 of the long form
             for phrase in range(0, cfg.bars, 2):
                 if not _drums_on(phrase, s):
                     continue
-                inten = 0.35 if phrase < s["drums"] + 8 else (0.6 if phrase < 64 else 0.75)
+                if cfg.break_plan == "xtal":
+                    inten = 0.35 if phrase < s["drums"] + 8 else (0.6 if phrase < 64 else cfg.chop_max)
+                else:
+                    key = "xtal" if phrase < s["drums"] + 8 else ("on" if phrase < late else "roll")
+                    loop = loops[key]
+                    inten = {"xtal": 0.35, "on": 0.6, "roll": cfg.chop_max}[key]
                 fill = (phrase % 8) == 6
                 put(drums, chop_break(loop, cfg, r_brk, inten, fill=fill), phrase * cfg.bar, 0.7)
         drums = lp(drums, 12000, sr, 2)
@@ -343,13 +391,16 @@ def _render(cfg: AmbientConfig | None = None, presets: dict | None = None,
     # --- mix / master (same rails as the other namima composers)
     send = hp(0.5 * pad + 0.8 * lead + 0.4 * lead_echo + 0.25 * drums, 300, sr, 2)
     wet = reverb(send, r_mst, sr, decay=0.9, length=3.0, predelay=0.03) * 0.30
+    g = {k: cfg.mix_gain(k) for k in cfg.MIX_PARTS}
     if stems is not None:
         # Capture weighted contributions, not independently mastered/normalised
         # tracks. Keep the original mix expression and RNG order unchanged.
-        stems.update(pad=0.30 * pad, lead=0.55 * lead,
-                     lead_echo=0.35 * lead_echo, sub=0.85 * sub,
-                     drums=0.90 * drums, texture=tex.copy(), reverb=wet.copy())
-    mix = 0.30 * pad + 0.55 * lead + 0.35 * lead_echo + 0.85 * sub + 0.90 * drums + tex + wet
+        stems.update(pad=0.30 * g["pad"] * pad, lead=0.55 * g["lead"] * lead,
+                     lead_echo=0.35 * g["echo"] * lead_echo, sub=0.85 * g["sub"] * sub,
+                     drums=0.90 * g["drums"] * drums, texture=g["texture"] * tex,
+                     reverb=g["reverb"] * wet)
+    mix = (0.30 * g["pad"] * pad + 0.55 * g["lead"] * lead + 0.35 * g["echo"] * lead_echo
+           + 0.85 * g["sub"] * sub + 0.90 * g["drums"] * drums + g["texture"] * tex + g["reverb"] * wet)
     mix = hp(mix, 22, sr, 1)
     low = lp(mix, 150, sr, 2)
     mix = low + np.tanh(1.1 * (mix - low)) / np.tanh(1.1)   # glue only >150 Hz
@@ -407,6 +458,20 @@ def _to_mp3(wav_path: Path, bitrate: str = "192k") -> Path | None:
     return mp3
 
 
+def add_variation_args(p: argparse.ArgumentParser) -> None:
+    """Mix trims (dB) and break plan — shared by this CLI and namima.deliver."""
+    for part in AmbientConfig.MIX_PARTS:
+        p.add_argument(f"--{part}-db", type=float, default=0.0, help=f"{part} trim in dB (0 = original)")
+    p.add_argument("--break-plan", choices=BREAK_PLANS, default="xtal")
+    p.add_argument("--chop-max", type=float, default=0.75, help="chop intensity of the last section (0..1)")
+
+
+def variation_kwargs(a) -> dict:
+    kw = {f"{part}_db": getattr(a, f"{part}_db") for part in AmbientConfig.MIX_PARTS}
+    kw.update(break_plan=a.break_plan, chop_max=a.chop_max)
+    return kw
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="namima ambient-side IDM prototype (deterministic)")
     p.add_argument("--mode", choices=MODES, default="soft")
@@ -416,8 +481,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--root-degree", type=int, default=0)
     p.add_argument("--out", required=True, help="output .wav path (24-bit / 48 kHz)")
     p.add_argument("--mp3", action="store_true", help="also encode an mp3 next to the wav")
+    add_variation_args(p)
     a = p.parse_args(argv)
-    cfg = AmbientConfig(bars=a.bars, bpm=a.bpm, seed=a.seed, mode=a.mode, root_degree=a.root_degree)
+    cfg = AmbientConfig(bars=a.bars, bpm=a.bpm, seed=a.seed, mode=a.mode, root_degree=a.root_degree,
+                        **variation_kwargs(a))
     stereo, meta = render(cfg)
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)

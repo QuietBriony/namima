@@ -41,9 +41,9 @@ from typing import Sequence
 import numpy as np
 
 from .generator import write_wav24
-from .idm_ambient import AmbientConfig, MODES, render
+from .idm_ambient import AmbientConfig, MODES, render, add_variation_args, variation_kwargs
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 HANDOFF_SUBPATH = Path("AI連携") / "Music"
 
 
@@ -129,6 +129,8 @@ def handoff_md(base: str, meta: dict, files: dict[str, Path], recipe_cmd: str, n
               f"bars {meta.get('bars')} · BPM {meta.get('bpm')} · seed {meta.get('seed')} · "
               f"root_degree {meta.get('root_degree')}",
               f"- Pitch system: {meta.get('pitch_system')}",
+              *([f"- Variation: mix_db {meta.get('mix_db', {})} · break_plan {meta.get('break_plan', 'xtal')} · "
+                 f"chop_max {meta.get('chop_max', 0.75)}"] if any(k in meta for k in ("mix_db", "break_plan", "chop_max")) else []),
               f"- Re-render (any PC, CPU): `{recipe_cmd}`", ""]
     if st:
         lines += ["## Structure", "", f"- 1 bar = {bar_s:.2f} s",
@@ -220,7 +222,8 @@ def cmd_judge(a) -> int:
     ff, _ = find_ffmpeg()
     hd, hd_src = resolve_handoff_dir(a.handoff_dir)
     out_dir = Path(a.out_dir)
-    cfgs = [asdict(AmbientConfig(bars=a.bars, bpm=a.bpm, seed=a.seed, mode=m, root_degree=a.root_degree))
+    cfgs = [asdict(AmbientConfig(bars=a.bars, bpm=a.bpm, seed=a.seed, mode=m, root_degree=a.root_degree,
+                                 **variation_kwargs(a)))
             for m in MODES]
     jobs = max(1, min(a.jobs, len(cfgs)))
     if jobs > 1:
@@ -230,8 +233,8 @@ def cmd_judge(a) -> int:
         results = [_render_job(c) for c in cfgs]
     for mode, stereo, meta, dt in results:
         secs = int(round(meta["frames"] / meta["sample_rate"]))
-        base = f"{a.name}-judge-{mode}-s{a.seed}-{secs}s"
-        cmd = f"python scripts/deliver.py long --name {a.name} --mode {mode} --bars {a.bars} --seed {a.seed}"
+        base = f"{a.name}-judge-{mode}-s{a.seed}{'-' + a.tag if a.tag else ''}-{secs}s"
+        cmd = f"python scripts/deliver.py long --name {a.name} --mode {mode} --bars {a.bars} --seed {a.seed}{variation_cli(a)}"
         pk = write_packet(stereo, meta, base, out_dir, hd, ff, cmd, deliver_master=a.deliver_master,
                           notes="Judgement clip — same seed / motif / pad as its siblings; only the beat differs.")
         print(f"[{mode}] rendered {secs}s in {dt:.1f}s -> {pk['wav'].name}; "
@@ -242,11 +245,12 @@ def cmd_judge(a) -> int:
 def cmd_long(a) -> int:
     ff, _ = find_ffmpeg()
     hd, _ = resolve_handoff_dir(a.handoff_dir)
-    cfg = AmbientConfig(bars=a.bars, bpm=a.bpm, seed=a.seed, mode=a.mode, root_degree=a.root_degree)
+    cfg = AmbientConfig(bars=a.bars, bpm=a.bpm, seed=a.seed, mode=a.mode, root_degree=a.root_degree,
+                        **variation_kwargs(a))
     mode, stereo, meta, dt = _render_job(asdict(cfg))
     secs = int(round(meta["frames"] / meta["sample_rate"]))
-    base = a.base or f"{a.name}-{mode}-s{a.seed}-{a.bars}bars-{secs // 60}m{secs % 60:02d}s"
-    cmd = f"python scripts/deliver.py long --name {a.name} --mode {mode} --bars {a.bars} --seed {a.seed}"
+    base = a.base or f"{a.name}-{mode}-s{a.seed}{'-' + a.tag if a.tag else ''}-{a.bars}bars-{secs // 60}m{secs % 60:02d}s"
+    cmd = f"python scripts/deliver.py long --name {a.name} --mode {mode} --bars {a.bars} --seed {a.seed}{variation_cli(a)}"
     pk = write_packet(stereo, meta, base, Path(a.out_dir), hd, ff, cmd, deliver_master=True, notes=a.notes or "")
     print(f"rendered {secs}s in {dt:.1f}s -> {pk['wav']}")
     for p in pk["delivered"]:
@@ -256,6 +260,22 @@ def cmd_long(a) -> int:
     return 0
 
 
+def variation_cli(a) -> str:
+    """Exact CLI suffix that reproduces the non-default variation (repr keeps floats lossless)."""
+    parts = []
+    for part in AmbientConfig.MIX_PARTS:
+        v = getattr(a, f"{part}_db")
+        if v != 0.0:
+            parts.append(f"--{part}-db {v!r}")
+    if a.break_plan != "xtal":
+        parts.append(f"--break-plan {a.break_plan}")
+    if a.chop_max != 0.75:
+        parts.append(f"--chop-max {a.chop_max!r}")
+    if a.tag:
+        parts.append(f"--tag {a.tag}")
+    return (" " + " ".join(parts)) if parts else ""
+
+
 def _common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--name", default="idm-ambient")
     p.add_argument("--seed", type=int, default=174852)
@@ -263,6 +283,8 @@ def _common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--root-degree", type=int, default=0)
     p.add_argument("--out-dir", default=str(Path("renders") / "deliver"))
     p.add_argument("--handoff-dir", default=None)
+    p.add_argument("--tag", default="", help="short ASCII tag added to the packet base name for a variation")
+    add_variation_args(p)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

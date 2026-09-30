@@ -1,6 +1,9 @@
 // audio.js
 window.AudioEngine = (() => {
   let started = false;
+  let startPromise = null;
+  let startGeneration = 0;
+  let lastEnergyUpdate = -Infinity;
 
   let master, filter, airFilter, tailFilter, tailDelay, tailGain, reverb, shimmer, limiter;
   let pad, air, pluck;
@@ -120,9 +123,11 @@ window.AudioEngine = (() => {
   }
 
   function panic(reason="panic"){
+    ++startGeneration;
+    startPromise = null;
     stopBloom();
-    if(!started) return { started:false, reason };
     const nodes = [pad, air, pluck, shimmer, reverb, tailGain, tailDelay, tailFilter, airFilter, filter, master, limiter];
+    const wasStarted = started;
     releaseVoices(reason);
     try { Tone.Transport?.stop?.(); } catch (_error) {}
     try {
@@ -134,7 +139,8 @@ window.AudioEngine = (() => {
     started = false;
     master = filter = airFilter = tailFilter = tailDelay = tailGain = reverb = shimmer = limiter = null;
     pad = air = pluck = null;
-    window.setTimeout(() => disposeNodes(nodes), 360);
+    if(wasStarted) window.setTimeout(() => disposeNodes(nodes), 360);
+    else disposeNodes(nodes);
     return { started:false, reason };
   }
 
@@ -317,12 +323,39 @@ window.AudioEngine = (() => {
     return bloomOn;
   }
 
-  async function start(){
-    if(started) return;
+  function lightAudioRuntime(){
+    const forced = new URLSearchParams(window.location?.search || "").get("aiLight");
+    if(forced === "0") return false;
+    if(forced === "1") return true;
+    const nav = window.navigator || {};
+    return /iPhone|iPad|iPod|Android|Mobile/i.test(nav.userAgent || "") ||
+      (nav.platform === "MacIntel" && nav.maxTouchPoints > 1) ||
+      nav.connection?.saveData === true ||
+      (nav.hardwareConcurrency > 0 && nav.hardwareConcurrency <= 8) ||
+      (nav.deviceMemory > 0 && nav.deviceMemory <= 8);
+  }
+
+  function start(){
+    if(started) return Promise.resolve(true);
+    if(startPromise) return startPromise;
+    const generation = ++startGeneration;
+    startPromise = startGraph(generation).catch((error) => {
+      if(generation !== startGeneration) return false;
+      panic("start failed");
+      throw error;
+    }).finally(() => {
+      if(generation === startGeneration) startPromise = null;
+    });
+    return startPromise;
+  }
+
+  async function startGraph(generation){
 
     await Tone.start();
     // iOSで念のため
     if (Tone.context.state !== "running") await Tone.context.resume();
+    if(generation !== startGeneration) return false;
+    if(Tone.context.state !== "running") throw new Error("AudioContext is not running");
 
     limiter = new Tone.Limiter(-0.8).toDestination();
     master  = new Tone.Gain(0.9);
@@ -335,11 +368,16 @@ window.AudioEngine = (() => {
       ? new Tone.PingPongDelay({ delayTime: "4n", feedback: 0.14, wet: 0.06 })
       : new Tone.FeedbackDelay({ delayTime: "4n", feedback: 0.14, wet: 0.06 });
     tailGain = new Tone.Gain(0.09);
-    reverb  = new Tone.Reverb({ decay: 6.5, preDelay: 0.01, wet: 0.22 });
+    reverb  = lightAudioRuntime()
+      ? new Tone.FeedbackDelay({ delayTime: 0.06, feedback: 0.46, wet: 0.22 })
+      : new Tone.Reverb({ decay: 6.5, preDelay: 0.01, wet: 0.22 });
     shimmer = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.20, wet: 0.05 });
 
     // Reverbは生成待ちがある（鳴らない/遅延の原因になりやすい）
-    await reverb.generate();
+    // Tone.Reverb already starts generating in its constructor. Await that
+    // work once; a second generate() doubles the expensive startup render.
+    await reverb.ready;
+    if(generation !== startGeneration) return false;
 
     // chain
     filter.connect(reverb);
@@ -362,6 +400,8 @@ window.AudioEngine = (() => {
       oscillator: { type: "sine" },
       envelope: { attack: 1.6, decay: 0.4, sustain: 0.72, release: 5.0 }
     }).connect(airFilter);
+    pad.maxPolyphony = 8;
+    air.maxPolyphony = 8;
 
     pluck = new Tone.PluckSynth({
       attackNoise: 0.8,
@@ -375,11 +415,12 @@ window.AudioEngine = (() => {
     lastTideName = tideSection().name;
     pad.triggerAttackRelease([`${p[0]}3`, `${p[3]}3`, `${p[4]}3`], 3.5, now, 0.10);
     air.triggerAttackRelease([`${p[0]}4`, `${p[3]}4`, `${p[4]}4`], 5.5, now + 0.05, 0.035);
-    applyMood(0.05);
-
     started = true;
+    lastEnergyUpdate = -Infinity;
+    applyMood(0.05);
     console.log("Tone started");
     scheduleBloom();
+    return true;
   }
 
   function onTap(xNorm, intensity=0.6, conceptInput=null){
@@ -451,6 +492,9 @@ window.AudioEngine = (() => {
 
   function updateEnergy(input){
     if(!started) return;
+    const now = Tone.now();
+    if(now - lastEnergyUpdate < 0.10) return;
+    lastEnergyUpdate = now;
     announceTideTurn();
     const concept = normalizeAmbientConcept(input, 0);
     lastAmbientConcept = concept;
@@ -478,6 +522,7 @@ window.AudioEngine = (() => {
     setBloom,
     setBloomListener(fn){ bloomListener = typeof fn === "function" ? fn : null; },
     releaseVoices,
+    get starting(){ return startPromise !== null; },
     panic,
     get mood(){ return currentMood; },
     get auto(){ return autoOn; },

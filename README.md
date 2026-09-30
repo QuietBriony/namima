@@ -73,3 +73,7 @@ python scripts/catalog_deliveries.py                          # deliveries/CATAL
 python scripts/catalog_deliveries.py --set-verdict <packet> "採用。酸をもう少し前へ"   # record the human verdict
 python scripts/audition_reel.py --plan deliveries/reel-plan-v1.json   # one m4a + cue sheet of every packet's key passage
 ```
+
+### 2026-09-30 再生の安定化
+
+起動中の連打は一つの準備へまとめ、途中の画面ロック・失敗で音源を解放します。スマホ・低負荷端末では短いdelayの音場を使い、長い残響の二重生成を避けます。pad/airは各8voiceに制限し、音場更新は10Hz、スマホ描画は30fps。実iPhoneの音質・長時間試聴は未確認です。

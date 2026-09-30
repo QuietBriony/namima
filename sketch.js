@@ -344,7 +344,7 @@ function showRestartOverlay(message="音を再開するには Tap してくだ�
 }
 
 function quietForPageLifecycle(reason="background"){
-  if(!started && !window.AudioEngine?.started) return;
+  if(!started && !window.AudioEngine?.started && !window.AudioEngine?.starting) return;
   started = false;
   sources = [];
   try { window.AudioEngine?.panic?.(reason); } catch (error) {
@@ -371,6 +371,7 @@ function isUiControlTarget(target){
 function setup(){
   createCanvas(windowWidth, windowHeight);
   pixelDensity(1);
+  frameRate(isMobile() ? 30 : 60);
   background(0);
 
   const n = isMobile() ? SETTINGS.particleCountMobile : SETTINGS.particleCountDesktop;
@@ -383,13 +384,22 @@ function setup(){
   const overlay = document.getElementById("startOverlay");
   overlay.addEventListener("pointerdown", async (e) => {
     e.preventDefault();
+    if(overlay.getAttribute("aria-busy") === "true") return;
+    overlay.setAttribute("aria-busy", "true");
     // iOS対策：ここで確実にユーザー操作として音を開始
-    await startAudio();
-    overlay.style.display = "none";
-    started = true;
-    syncAudioMood();
-
-    addSource(width*0.5, height*0.5, 0.55);
+    try {
+      const ready = await startAudio();
+      if(!ready) return;
+      overlay.style.display = "none";
+      started = true;
+      syncAudioMood();
+      addSource(width*0.5, height*0.5, 0.55);
+    } catch(error) {
+      console.warn("[namima] audio start failed", error);
+      showRestartOverlay("音を開始できませんでした。Tapでもう一度試せます。");
+    } finally {
+      overlay.removeAttribute("aria-busy");
+    }
   }, {passive:false});
 
   const modeToggle = document.getElementById("modeToggle");
@@ -444,9 +454,8 @@ async function startAudio(){
     console.log("AudioEngine missing");
     return;
   }
-  if(window.AudioEngine.started) return;
-  await window.AudioEngine.start();
-  console.log("Audio started");
+  if(window.AudioEngine.started) return true;
+  return window.AudioEngine.start();
 }
 
 function windowResized(){

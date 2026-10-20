@@ -69,7 +69,8 @@ def main(argv=None) -> int:
     cmd = [ff, "-y", "-loop", "1", "-framerate", "1", "-i", str(still), "-i", str(tmp),
            "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p",
            "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(mp4)]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    # ffmpeg writes UTF-8; the locale codec (cp932 on a Japanese Windows) would crash on a non-ASCII path
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     tmp.unlink(missing_ok=True)
     if r.returncode != 0:
         print(r.stderr[-1200:])

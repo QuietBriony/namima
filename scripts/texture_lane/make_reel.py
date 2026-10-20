@@ -24,14 +24,18 @@ def build(out: Path, items, ff: str) -> list[str]:
     for i, (label, path) in enumerate(items):
         inputs += ["-ss", str(START), "-t", str(EXC), "-i", path]
         chain.append(f"[{i}:a]aformat=sample_rates=48000:channel_layouts=stereo,afade=t=in:d=0.3,afade=t=out:st={EXC-0.3}:d=0.3[a{i}]")
+        # one silent source per gap: a filtergraph label can feed only one input. The first version
+        # reused a single [g], and ffmpeg bound every later [g] to input 0 - a 25 s repeat of the first
+        # excerpt instead of 1 s of silence - so the cue sheet drifted from the 3rd entry on.
+        chain.append(f"anullsrc=r=48000:cl=stereo,atrim=end={GAP:g}[g{i}]")
         cue.append(f"{int(t//60)}:{int(t%60):02d}  {label}")
         t += EXC + GAP
-    chain.append("anullsrc=r=48000:cl=stereo,atrim=end=1[g]")
-    concat = "".join(f"[a{i}][g]" for i in range(len(items))) + f"concat=n={2*len(items)}:v=0:a=1[out]"
+    concat = "".join(f"[a{i}][g{i}]" for i in range(len(items))) + f"concat=n={2*len(items)}:v=0:a=1[out]"
     filt = ";".join(chain + [concat])
     cmd = [ff, "-y", "-loglevel", "error", *inputs, "-filter_complex", filt, "-map", "[out]",
            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out)]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    # ffmpeg writes UTF-8; the locale codec (cp932 on a Japanese Windows) would crash on a non-ASCII path
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode:
         print(r.stderr[-800:])
         raise SystemExit(1)

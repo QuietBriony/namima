@@ -76,6 +76,8 @@ python scripts/texture_lane/make_reel.py <W>/reel-wave2-285-v2.m4a "core=<W>/285
 ```
 
 各クリップの 30 s 目から 25 s・間 1 s・AAC 192k と `.cue.txt`。
+（初版は無音ラベル 1 個の使い回しで、2 個目以降の「間」が 1 本目の抜粋 25 s に化けていた。2026-10-20 までに作った
+リールは cue の 3 行目以降が実際より早い — 修正済み。）
 
 ### 7. 納品 packet
 

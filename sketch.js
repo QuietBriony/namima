@@ -12,6 +12,7 @@ let moodProfiles = {};
 let musicPacketPanelReady = false;
 let latestAmbientConcept = null;
 let lastGestureAt = 0;
+let waterGesture = null;
 let traceSession = null;
 let lastTraceSummary = null;
 let traceSaveLabelResetAt = 0;
@@ -338,6 +339,7 @@ function showRestartOverlay(message="音を再開するには Tap してくだ�
 }
 
 function quietForPageLifecycle(reason="background"){
+  endWaterGesture();
   if(!started && !window.AudioEngine?.started && !window.AudioEngine?.starting) return;
   started = false;
   sources = [];
@@ -363,7 +365,8 @@ function isUiControlTarget(target){
 }
 
 function setup(){
-  createCanvas(windowWidth, windowHeight);
+  const surface = createCanvas(windowWidth, windowHeight);
+  setupCanvasGestures(surface.elt);
   pixelDensity(1);
   frameRate(isMobile() ? 30 : 60);
   background(0);
@@ -444,6 +447,7 @@ async function startAudio(){
 }
 
 function windowResized(){
+  endWaterGesture();
   resizeCanvas(windowWidth, windowHeight);
   initOrbitBodies();
 }
@@ -810,12 +814,11 @@ function addSource(x,y, strength=0.7, concept=null){
   if(sources.length > SETTINGS.maxSources) sources.shift();
 }
 
-function handleTap(x, y){
-  if(!started) return;
+function handleTap(x, y, kind="touch"){
+  if(!started) return false;
   const nowMs = millis();
   const dt = lastGestureAt > 0 ? Math.max(16, nowMs - lastGestureAt) : 900;
   const gestureRate = clamp01(190 / dt);
-  lastGestureAt = nowMs;
 
   const s = 0.55 + 0.45 * random();
   const xNorm = clamp01(x / Math.max(1, width));
@@ -824,13 +827,52 @@ function handleTap(x, y){
     xPosition: xNorm,
     gestureRate,
   });
+  if(window.AudioEngine?.onTap(xNorm, s, concept) === false) return false;
+  lastGestureAt = nowMs;
   latestAmbientConcept = concept;
   trackTraceTouch(concept);
 
-  addSource(x, y, s, concept);
+  addSource(x, y, s, { ...concept, kind });
   if(visualMode === "orbit") nudgeOrbit(x, y, s);
 
-  if(window.AudioEngine) window.AudioEngine.onTap(xNorm, s, concept);
+  return true;
+}
+
+function endWaterGesture(){
+  const gesture = waterGesture;
+  waterGesture = null;
+  if(gesture?.canvas.hasPointerCapture(gesture.id)) gesture.canvas.releasePointerCapture(gesture.id);
+}
+
+function setupCanvasGestures(canvas){
+  canvas.style.touchAction = "none";
+  const point = event => {
+    const rect = canvas.getBoundingClientRect();
+    return {x:constrain((event.clientX - rect.left) / Math.max(1, rect.width) * width, 0, width),
+      y:constrain((event.clientY - rect.top) / Math.max(1, rect.height) * height, 0, height)};
+  };
+  const degree = x => Math.min(14, Math.floor(x / Math.max(1, width) * 15));
+  canvas.addEventListener("pointerdown", event => {
+    if(!started || waterGesture || (event.pointerType === "mouse" && event.button !== 0)) return;
+    event.preventDefault();
+    const p = point(event);
+    canvas.setPointerCapture(event.pointerId);
+    waterGesture = {canvas, id:event.pointerId, x:p.x, y:p.y, degree:degree(p.x), at:millis()};
+    handleTap(p.x, p.y);
+  });
+  canvas.addEventListener("pointermove", event => {
+    if(!started || waterGesture?.id !== event.pointerId) return;
+    event.preventDefault();
+    const p = point(event);
+    waterGesture.x = p.x; waterGesture.y = p.y;
+    const next = degree(p.x), now = millis();
+    if(next === waterGesture.degree || now - waterGesture.at < 180) return;
+    if(handleTap(p.x, p.y, "stroke")){ waterGesture.degree = next; waterGesture.at = now; }
+  });
+  const finish = event => { if(waterGesture?.id === event.pointerId) endWaterGesture(); };
+  canvas.addEventListener("pointerup", finish);
+  canvas.addEventListener("pointercancel", finish);
+  canvas.addEventListener("lostpointercapture", finish);
 }
 
 function nudgeOrbit(x, y, strength){
@@ -854,19 +896,9 @@ function nudgeOrbit(x, y, strength){
   nearest.vy += ((nearest.y - y) / d) * strength * influence * 1.2 + random(-0.12, 0.12);
 }
 
-// PCクリック
-function mousePressed(event){
-  if(isUiControlTarget(event?.target)) return;
-  handleTap(constrain(mouseX,0,width), constrain(mouseY,0,height));
-}
-
-// ★スマホタップ（これが重要）
+// Preserve native UI clicks; canvas Pointer Events own the musical gesture.
 function touchStarted(event){
   if(isUiControlTarget(event?.target)) return true;
-  if(!started) return false;
-  const tx = touches?.[0]?.x ?? mouseX;
-  const ty = touches?.[0]?.y ?? mouseY;
-  handleTap(constrain(tx,0,width), constrain(ty,0,height));
   return false; // スクロール防止
 }
 
@@ -956,11 +988,16 @@ function drawRippleOutlines(tNow){
     const age = tNow - source.t0;
     if(age < 0 || age > 1.8) continue;
     const fade = (1 - age / 1.8) ** 2;
-    const echo = source.kind === "echo" || source.kind === "memory";
+    const echo = source.kind === "echo" || source.kind === "memory" || source.kind === "variation";
     stroke((echo ? 166 : 193) + mood.hueShift, 100, 190 * mood.brightness, fade * (echo ? 82 : 120));
     strokeWeight(echo ? 1 : 1.3);
     const radius = 8 + age * (echo ? 38 : 56);
     circle(source.x, source.y, radius * 2);
+  }
+  if(started && waterGesture){
+    stroke(178 + mood.hueShift, 90, 205 * mood.brightness, 155);
+    strokeWeight(1.2);
+    circle(waterGesture.x, waterGesture.y, 12);
   }
   pop();
 }

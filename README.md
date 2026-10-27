@@ -28,6 +28,11 @@ Left-to-right moves continuously from lower to higher notes. A new touch takes
 the lead, and the ambient voice remembers up to four played notes for 24 seconds
 before drifting away. Expanding rings follow the answers. Sleep mood has one
 quieter answer, and backgrounding clears pending answers and short-term memory.
+You can also hold and draw across the water to connect notes. Crossing a pitch
+step plays at most once per 180 ms; holding still leaves space. The answer pace
+follows the recent playing pace, and the quiet-time voice occasionally turns a
+remembered note by one scale step before returning home. Sleep mood keeps the
+sparse recall. All gestures and musical memory are transient and clear on exit.
 
 Checks:
 

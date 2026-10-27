@@ -12,6 +12,7 @@ window.AudioEngine = (() => {
   let replyGeneration = 0;
   let motif = [];
   let motifStep = 0;
+  let phraseGapMs = 620;
   let phraseRole = "drift";
   let currentMood = "water_day";
   let autoOn = false;
@@ -270,6 +271,7 @@ window.AudioEngine = (() => {
     cancelReplies();
     motif = [];
     motifStep = 0;
+    phraseGapMs = 620;
     lastTapTime = -Infinity;
     phraseRole = "drift";
   }
@@ -277,20 +279,24 @@ window.AudioEngine = (() => {
   // Keep one short answer in flight. A new touch takes the lead immediately;
   // previously sounding notes retain their natural release.
   function answerTouch(degree, previous, concept, velocity){
+    const first = previous ?? Math.min(14, degree + 2);
+    const delay = 440 + concept.fade_back_time * 85;
+    scheduleAnswer([first, degree], delay, phraseGapMs, velocity, "echo");
+  }
+
+  function scheduleAnswer(degrees, delay, spacing, velocity, kind){
     cancelReplies();
     const generation = replyGeneration;
     const pool = tideScale().slice();
-    const first = previous ?? Math.min(14, degree + 2);
-    const delay = 440 + concept.fade_back_time * 85;
-    const answers = currentMood === "soft_sleep" ? [first] : [first, degree];
+    const answers = degrees.slice(0, currentMood === "soft_sleep" ? 1 : 2);
     answers.forEach((answer, index) => {
       const timer = window.setTimeout(() => {
         replyTimers.delete(timer);
         if(!started || generation !== replyGeneration || !droplet) return;
-        phraseRole = "echo";
+        phraseRole = kind;
         droplet.triggerAttackRelease(noteAtDegree(answer, pool), 0.24, Tone.now(), velocity * (index ? 0.24 : 0.40));
-        rippleForNote(answer, "echo", index ? 0.22 : 0.30);
-      }, delay + index * 620);
+        rippleForNote(answer, kind, index ? 0.22 : 0.30);
+      }, delay + index * spacing);
       replyTimers.add(timer);
     });
   }
@@ -324,6 +330,7 @@ window.AudioEngine = (() => {
     if(!hasVoiceRoom(pad, 1)) return;
     const remembering = motif.length > 0 && sinceTap < 24;
     if(!remembering){ motif = []; motifStep = 0; }
+    const step = motifStep;
     const x = remembering ? (motif[motifStep++ % motif.length] + 0.5) / 15 : stepBloomX();
     const n = noteFromX(x);
     phraseRole = remembering ? "memory" : "drift";
@@ -335,6 +342,18 @@ window.AudioEngine = (() => {
 
     // 視覚連動: 鳴ったその瞬間、音高 x を sketch へ渡して水面を揺らす。
     rippleForNote(degreeFromX(x), remembering ? "memory" : "bloom", 0.3);
+
+    // Every second remembered note turns one scale step and settles home.
+    // Keep the player's pace, leave the foreground clear, and use the same
+    // two-event queue so a new touch can take over without a delayed burst.
+    if(remembering && motif.length > 1 && sinceTap >= 5 && step % 2 === 1 && currentMood !== "soft_sleep"){
+      const degree = degreeFromX(x);
+      const previous = motif[(step - 1) % motif.length];
+      const direction = degree >= previous ? -1 : 1;
+      const neighbor = step => Math.max(0, Math.min(14, degree + step));
+      const turn = [neighbor(direction), neighbor(-direction)].find(note => note !== degree && note !== motif[0]) ?? neighbor(direction);
+      scheduleAnswer([turn, motif[0]], 360, phraseGapMs, baseVel * 0.65, "variation");
+    }
 
     // 4 音に 1 回、companion で淡い dyad (倍音の広がり)。
     if(bloomCount % 4 === 0 && hasVoiceRoom(air, 2)){
@@ -486,7 +505,8 @@ window.AudioEngine = (() => {
     const now = Tone.now();
     const dt = now - lastTapTime;
     if(dt < 0.16) return false;
-    if(dt >= 24){ motif = []; motifStep = 0; }
+    if(dt >= 24){ motif = []; motifStep = 0; phraseGapMs = 620; }
+    else if(dt < 3) phraseGapMs = Math.max(280, Math.min(900, phraseGapMs * 0.55 + dt * 1000 * 0.45));
     lastTapTime = now;
 
     const shape = moodAudio();
@@ -592,7 +612,7 @@ window.AudioEngine = (() => {
     get auto(){ return autoOn; },
     get bloomOn(){ return bloomOn; },
     get bloom(){ return { on: bloomOn, x: Number(bloomX.toFixed(3)), scheduled: bloomTimer !== null }; },
-    get phrase(){ return { role:phraseRole, remembered:motif.length, pending:replyTimers.size }; },
+    get phrase(){ return { role:phraseRole, remembered:motif.length, pending:replyTimers.size, rhythm_ms:Math.round(phraseGapMs) }; },
     get tide(){ const s = tideSection(); return { phase: Number(tidePhase().toFixed(3)), section: s.name, pool: s.pool.slice() }; },
     get ambientConcept(){ return lastAmbientConcept; },
     get started(){ return started; }

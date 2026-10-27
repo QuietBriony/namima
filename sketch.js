@@ -334,13 +334,7 @@ function setupTraceRecorder(){
 }
 
 function showRestartOverlay(message="音を再開するには Tap してください"){
-  const overlay = document.getElementById("startOverlay");
-  if(!overlay) return;
-  const sub = overlay.querySelector(".start-sub");
-  const note = overlay.querySelector(".start-sync-note");
-  if(sub) sub.textContent = "音を再開します";
-  if(note) note.textContent = message;
-  overlay.style.display = "flex";
+  window.NamimaStartup.reset(message);
 }
 
 function quietForPageLifecycle(reason="background"){
@@ -381,26 +375,18 @@ function setup(){
   }
   initOrbitBodies();
 
-  const overlay = document.getElementById("startOverlay");
-  overlay.addEventListener("pointerdown", async (e) => {
-    e.preventDefault();
-    if(overlay.getAttribute("aria-busy") === "true") return;
-    overlay.setAttribute("aria-busy", "true");
-    // iOS対策：ここで確実にユーザー操作として音を開始
-    try {
-      const ready = await startAudio();
-      if(!ready) return;
-      overlay.style.display = "none";
-      started = true;
-      syncAudioMood();
-      addSource(width*0.5, height*0.5, 0.55);
-    } catch(error) {
-      console.warn("[namima] audio start failed", error);
-      showRestartOverlay("音を開始できませんでした。Tapでもう一度試せます。");
-    } finally {
-      overlay.removeAttribute("aria-busy");
-    }
-  }, {passive:false});
+  window.NamimaStartup.ready(async () => {
+    const ready = await startAudio();
+    if(!ready) return false;
+    started = true;
+    syncAudioMood();
+    addSource(width*0.5, height*0.5, 0.55);
+    return true;
+  }, reason => {
+    started = false;
+    sources = [];
+    window.AudioEngine?.panic?.(reason);
+  });
 
   const modeToggle = document.getElementById("modeToggle");
   if(modeToggle){
@@ -451,8 +437,7 @@ function spawnBloomRipple(xNorm){
 
 async function startAudio(){
   if(!window.AudioEngine) {
-    console.log("AudioEngine missing");
-    return;
+    throw new Error("AudioEngine is not loaded");
   }
   if(window.AudioEngine.started) return true;
   return window.AudioEngine.start();
@@ -876,8 +861,8 @@ function mousePressed(event){
 
 // ★スマホタップ（これが重要）
 function touchStarted(event){
-  if(!started) return false;
   if(isUiControlTarget(event?.target)) return true;
+  if(!started) return false;
   const tx = touches?.[0]?.x ?? mouseX;
   const ty = touches?.[0]?.y ?? mouseY;
   handleTap(constrain(tx,0,width), constrain(ty,0,height));

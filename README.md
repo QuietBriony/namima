@@ -12,6 +12,12 @@ python -m http.server
 ```
 
 Then open `index.html` and tap the surface to start audio (it never auto-starts).
+Wait for the loading label to become `Tap to start`, then complete a tap or use
+Enter/Space on the start button. A stalled audio start becomes retryable after
+10 seconds; backgrounding cancels the attempt. If the CDN scripts cannot load,
+the loading screen offers a reload instead of an unresponsive start control.
+When a saved older app updates, its idle screen reloads once to use matching
+scripts; an update does not interrupt an active or pending audio start.
 After the first tap it self-plays: a gentle "bloom" voice keeps drawing soft notes
 from the current tide pool, and the tide slowly breathes between home / deep /
 bright moods over a few minutes. Your taps add ripples on top — the bloom recedes

@@ -28,7 +28,7 @@ assert.match(html, /rel="manifest" href="\.\/manifest\.webmanifest"/);
 assert.match(html, /navigator\.serviceWorker\.register\("\.\/sw\.js"\)/);
 // Per BL-011 / openclaw precedent: pattern-only, no hardcoded number — the
 // html<->sw lockstep check below catches actual version drift.
-for (const asset of ["audio.js", "music-session-adapter.js", "sketch.js"]) {
+for (const asset of ["startup.js", "audio.js", "music-session-adapter.js", "sketch.js"]) {
   assert.match(
     html,
     new RegExp(`${asset.replace(/\./g, "\\.")}\\?v=stack-\\d+`),
@@ -44,7 +44,7 @@ assert.match(sw, /const CACHE_PREFIX = "namima-pwa"/);
 // Per BL-011 / openclaw precedent: pattern-only, no hardcoded number — the
 // flexible drift check below catches actual version-cache drift.
 assert.match(sw, /const VERSION = `\$\{CACHE_PREFIX\}-v\d+`/);
-for (const asset of ["audio.js", "music-session-adapter.js", "sketch.js"]) {
+for (const asset of ["startup.js", "audio.js", "music-session-adapter.js", "sketch.js"]) {
   assert.match(
     sw,
     new RegExp(`"${asset.replace(/\./g, "\\.")}\\?v=stack-\\d+"`),

@@ -35,7 +35,15 @@
       background:rgba(10,10,14,0.55);
       max-width: 320px;
       text-align:center;
+      color:inherit;
+      font:inherit;
+      cursor:pointer;
+      touch-action:manipulation;
     }
+    #startButton:disabled { cursor:wait; opacity:.8; }
+    #startButton:focus-visible { outline:2px solid #b8eecd; outline-offset:6px; }
+    #startOverlay .start-card { display:grid; justify-items:center; gap:12px; max-width:calc(100vw - 32px); text-align:center; }
+    #startReload { font:inherit; color:inherit; background:transparent; border:1px solid #778; border-radius:8px; padding:8px 14px; }
     .start-title{
       font-weight:700;
       font-size:20px;
@@ -308,12 +316,16 @@
   </script>
 
   <div id="startOverlay">
-    <div class="box">
-      <div class="start-title">Tap to start</div>
-      <div class="start-sub">音を有効化します</div>
-      <div class="start-sync-note">Music SYNC後も、ここを押すまで音は始まりません。</div>
+    <div class="start-card">
+      <button class="box" id="startButton" type="button" disabled aria-describedby="startNote">
+        <span class="start-title" style="display:block">読み込み中…</span>
+        <span class="start-sub" style="display:block" aria-live="polite">音と画面を準備しています</span>
+      </button>
+      <div class="start-sync-note" id="startNote" aria-live="polite">準備ができるまでお待ちください。</div>
+      <button id="startReload" type="button" onclick="location.reload()">読み込み直す</button>
     </div>
   </div>
+  <script src="./startup.js?v=stack-10"></script>
 
   <div id="hint">Namima / Tapで聴く ambient</div>
   <div id="controlBar" aria-label="Namima controls">
@@ -372,9 +384,9 @@
   <!-- Tone.js -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 
-  <script src="./audio.js?v=stack-9"></script>
-  <script src="./music-session-adapter.js?v=stack-9"></script>
-  <script src="./sketch.js?v=stack-9"></script>
+  <script src="./audio.js?v=stack-10"></script>
+  <script src="./music-session-adapter.js?v=stack-10"></script>
+  <script src="./sketch.js?v=stack-10"></script>
   <script>
     (() => {
       const button = document.querySelector("[data-share-link]");

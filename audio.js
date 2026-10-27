@@ -6,8 +6,13 @@ window.AudioEngine = (() => {
   let lastEnergyUpdate = -Infinity;
 
   let master, filter, airFilter, tailFilter, tailDelay, tailGain, reverb, shimmer, limiter;
-  let pad, air, pluck;
-  let lastTapTime = 0;
+  let pad, air, pluck, droplet;
+  let lastTapTime = -Infinity;
+  const replyTimers = new Set();
+  let replyGeneration = 0;
+  let motif = [];
+  let motifStep = 0;
+  let phraseRole = "drift";
   let currentMood = "water_day";
   let autoOn = false;
   let currentProfileShape = null;
@@ -56,8 +61,8 @@ window.AudioEngine = (() => {
     try {
       const now = Tone.now();
       const p = section.pool;
-      pad.triggerAttackRelease([`${p[0]}3`, `${p[3]}3`, `${p[4]}3`], 5.5, now + 0.05, 0.055);
-      air.triggerAttackRelease([`${p[0]}4`, `${p[4]}4`], 7, now + 0.4, 0.028);
+      if(hasVoiceRoom(pad, 3)) pad.triggerAttackRelease([`${p[0]}3`, `${p[3]}3`, `${p[4]}3`], 5.5, now + 0.05, 0.055);
+      if(hasVoiceRoom(air, 2)) air.triggerAttackRelease([`${p[0]}4`, `${p[4]}4`], 7, now + 0.4, 0.028);
     } catch (error) {
       console.warn("[Namima] tide announce failed", error);
     }
@@ -104,7 +109,7 @@ window.AudioEngine = (() => {
 
   function releaseVoices(reason="release"){
     const now = typeof Tone !== "undefined" && typeof Tone.now === "function" ? Tone.now() : 0;
-    [pad, air, pluck].forEach((voice) => {
+    [pad, air, pluck, droplet].forEach((voice) => {
       try {
         if(typeof voice?.releaseAll === "function") voice.releaseAll(now);
         else if(typeof voice?.triggerRelease === "function") voice.triggerRelease(now);
@@ -126,7 +131,8 @@ window.AudioEngine = (() => {
     ++startGeneration;
     startPromise = null;
     stopBloom();
-    const nodes = [pad, air, pluck, shimmer, reverb, tailGain, tailDelay, tailFilter, airFilter, filter, master, limiter];
+    resetPhrase();
+    const nodes = [pad, air, pluck, droplet, shimmer, reverb, tailGain, tailDelay, tailFilter, airFilter, filter, master, limiter];
     const wasStarted = started;
     releaseVoices(reason);
     try { Tone.Transport?.stop?.(); } catch (_error) {}
@@ -138,7 +144,7 @@ window.AudioEngine = (() => {
 
     started = false;
     master = filter = airFilter = tailFilter = tailDelay = tailGain = reverb = shimmer = limiter = null;
-    pad = air = pluck = null;
+    pad = air = pluck = droplet = null;
     if(wasStarted) window.setTimeout(() => disposeNodes(nodes), 360);
     else disposeNodes(nodes);
     return { started:false, reason };
@@ -232,21 +238,61 @@ window.AudioEngine = (() => {
     };
   }
 
-  function noteFromX(xNorm){
-    const pool = tideScale();
-    const octave = 3 + Math.floor(xNorm * 3); // 3..5
-    const idx = Math.floor(xNorm * pool.length) % pool.length;
-    return `${pool[idx]}${octave}`;
+  function degreeFromX(xNorm){
+    return Math.min(14, Math.floor(clamp01(numberOr(xNorm, 0.5)) * 15));
   }
 
-  // 相方ノート: 同じ位置から scale を stepUp 度ぶん上る。旧実装の
-  // (x + 0.17) % 1 は wrap 時に register が飛んで dyad が他人になっていた。
-  function companionNote(xNorm, stepUp){
-    const pool = tideScale();
-    const octave = 3 + Math.floor(xNorm * 3);
-    const idx = Math.floor(xNorm * pool.length) % pool.length;
-    const lifted = idx + stepUp;
-    return `${pool[lifted % pool.length]}${Math.min(5, octave + Math.floor(lifted / pool.length))}`;
+  function noteAtDegree(degree, pool=tideScale()){
+    const d = Math.max(0, Math.min(14, degree));
+    return `${pool[d % pool.length]}${3 + Math.floor(d / pool.length)}`;
+  }
+
+  function noteFromX(xNorm){ return noteAtDegree(degreeFromX(xNorm)); }
+  function companionNote(xNorm, stepUp){ return noteAtDegree(degreeFromX(xNorm) + stepUp); }
+
+  function hasVoiceRoom(voice, count){
+    return voice && (voice.activeVoices ?? 0) + count <= voice.maxPolyphony;
+  }
+
+  function rippleForNote(degree, kind, strength){
+    if(!bloomListener) return;
+    try { bloomListener((degree + 0.5) / 15, { kind, strength }); }
+    catch(error){ console.warn("[Namima] note listener failed", error); }
+  }
+
+  function cancelReplies(){
+    ++replyGeneration;
+    for(const timer of replyTimers) window.clearTimeout(timer);
+    replyTimers.clear();
+  }
+
+  function resetPhrase(){
+    cancelReplies();
+    motif = [];
+    motifStep = 0;
+    lastTapTime = -Infinity;
+    phraseRole = "drift";
+  }
+
+  // Keep one short answer in flight. A new touch takes the lead immediately;
+  // previously sounding notes retain their natural release.
+  function answerTouch(degree, previous, concept, velocity){
+    cancelReplies();
+    const generation = replyGeneration;
+    const pool = tideScale().slice();
+    const first = previous ?? Math.min(14, degree + 2);
+    const delay = 440 + concept.fade_back_time * 85;
+    const answers = currentMood === "soft_sleep" ? [first] : [first, degree];
+    answers.forEach((answer, index) => {
+      const timer = window.setTimeout(() => {
+        replyTimers.delete(timer);
+        if(!started || generation !== replyGeneration || !droplet) return;
+        phraseRole = "echo";
+        droplet.triggerAttackRelease(noteAtDegree(answer, pool), 0.24, Tone.now(), velocity * (index ? 0.24 : 0.40));
+        rippleForNote(answer, "echo", index ? 0.22 : 0.30);
+      }, delay + index * 620);
+      replyTimers.add(timer);
+    });
   }
 
   // 自走する優しい声。pitch は隣へ歩く小旋律で潮プールから採り、family-safe な
@@ -275,8 +321,12 @@ window.AudioEngine = (() => {
     // 人間がタップ中は自走を控える。完全には消さず確率で間引く。
     if(sinceTap < 5 && Math.random() > 0.2) return;
 
-    const x = stepBloomX();
+    if(!hasVoiceRoom(pad, 1)) return;
+    const remembering = motif.length > 0 && sinceTap < 24;
+    if(!remembering){ motif = []; motifStep = 0; }
+    const x = remembering ? (motif[motifStep++ % motif.length] + 0.5) / 15 : stepBloomX();
     const n = noteFromX(x);
+    phraseRole = remembering ? "memory" : "drift";
     const baseVel = 0.05 + shape.tapScale * 0.05; // ~0.05..0.1 (family-safe)
     bloomCount += 1;
 
@@ -284,13 +334,10 @@ window.AudioEngine = (() => {
     pad.triggerAttackRelease(n, 2.0 + shape.tapScale * 1.2, now, baseVel * 0.9);
 
     // 視覚連動: 鳴ったその瞬間、音高 x を sketch へ渡して水面を揺らす。
-    if(bloomListener){
-      try { bloomListener(x); }
-      catch(error){ console.warn("[Namima] bloom listener failed", error); }
-    }
+    rippleForNote(degreeFromX(x), remembering ? "memory" : "bloom", 0.3);
 
     // 4 音に 1 回、companion で淡い dyad (倍音の広がり)。
-    if(bloomCount % 4 === 0){
+    if(bloomCount % 4 === 0 && hasVoiceRoom(air, 2)){
       const n2 = companionNote(x, 2);
       air.triggerAttackRelease([n, n2], 3.4, now + 0.18, baseVel * 0.5);
     }
@@ -409,6 +456,14 @@ window.AudioEngine = (() => {
       resonance: 0.92
     }).connect(filter);
 
+    // A soft, immediate front to the water tone, with independent releases
+    // for chords/fast touches; capped separately from the long pad voices.
+    droplet = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type:"triangle" },
+      envelope: { attack:0.008, decay:0.28, sustain:0, release:0.28 }
+    }).connect(filter);
+    droplet.maxPolyphony = 6;
+
     // 起動音（小さく・その時の潮のトライアド）
     const now = Tone.now();
     const p = tideScale();
@@ -416,6 +471,7 @@ window.AudioEngine = (() => {
     pad.triggerAttackRelease([`${p[0]}3`, `${p[3]}3`, `${p[4]}3`], 3.5, now, 0.10);
     air.triggerAttackRelease([`${p[0]}4`, `${p[3]}4`, `${p[4]}4`], 5.5, now + 0.05, 0.035);
     started = true;
+    resetPhrase();
     lastEnergyUpdate = -Infinity;
     applyMood(0.05);
     console.log("Tone started");
@@ -424,11 +480,13 @@ window.AudioEngine = (() => {
   }
 
   function onTap(xNorm, intensity=0.6, conceptInput=null){
-    if(!started) return;
+    if(!started) return false;
     announceTideTurn();
 
     const now = Tone.now();
     const dt = now - lastTapTime;
+    if(dt < 0.16) return false;
+    if(dt >= 24){ motif = []; motifStep = 0; }
     lastTapTime = now;
 
     const shape = moodAudio();
@@ -436,23 +494,28 @@ window.AudioEngine = (() => {
     lastAmbientConcept = concept;
     const n = noteFromX(clamp01(xNorm));
     const vel = Math.min(shape.tapMax, (0.10 + concept.safe_energy * 0.30 + concept.soft_pulse_visibility * 0.05) * shape.tapScale);
-    const melodyChance = Math.min(0.36, (shape.melodyChance ?? 0.28) * 0.55 + concept.melody_fragment_probability * 0.62);
     const padChance = Math.min(0.52, (shape.padChance ?? 0.32) * 0.56 + concept.soft_pulse_visibility * 0.34);
     const airChance = Math.min(0.76, shape.airChance * 0.58 + concept.air_lift * 0.42);
 
-    if(Math.random() < melodyChance){
-      pluck.triggerAttackRelease(n, 0.20 + concept.safe_energy * 0.16, now, vel * 0.82);
-    }
+    const degree = degreeFromX(xNorm);
+    const previous = motif.length ? motif[motif.length - 1] : null;
+    motif.push(degree);
+    if(motif.length > 4) motif.shift();
+    motifStep = 0;
+    phraseRole = "touch";
+    droplet.triggerAttackRelease(n, 0.20 + concept.safe_energy * 0.16, now, vel * 0.48);
+    answerTouch(degree, previous, concept, vel * 0.48);
 
-    if(dt > 0.18 && Math.random() < padChance){
+    if(dt > 0.18 && hasVoiceRoom(pad, 2) && Math.random() < padChance){
       const n2 = companionNote(clamp01(xNorm), 2);
       pad.triggerAttackRelease([n, n2], 1.2 + concept.fade_back_time * 0.36, now + 0.02, vel * 0.12);
     }
 
-    if(Math.random() < airChance){
+    if(hasVoiceRoom(air, 2) && Math.random() < airChance){
       const n2 = companionNote(clamp01(xNorm), 3);
       air.triggerAttackRelease([n, n2], 2.2 + concept.fade_back_time * 0.72, now + 0.02, vel * 0.14);
     }
+    return true;
   }
 
   function applyMood(ramp=0.6){
@@ -472,6 +535,7 @@ window.AudioEngine = (() => {
 
   function setMood(mood){
     if(!MOOD_AUDIO[mood]) return currentMood;
+    if(mood !== currentMood) resetPhrase();
     currentMood = mood;
     currentProfileShape = null;
     applyMood(1.2);
@@ -528,6 +592,7 @@ window.AudioEngine = (() => {
     get auto(){ return autoOn; },
     get bloomOn(){ return bloomOn; },
     get bloom(){ return { on: bloomOn, x: Number(bloomX.toFixed(3)), scheduled: bloomTimer !== null }; },
+    get phrase(){ return { role:phraseRole, remembered:motif.length, pending:replyTimers.size }; },
     get tide(){ const s = tideSection(); return { phase: Number(tidePhase().toFixed(3)), section: s.name, pool: s.pool.slice() }; },
     get ambientConcept(){ return lastAmbientConcept; },
     get started(){ return started; }

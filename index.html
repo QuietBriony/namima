@@ -59,6 +59,7 @@
     }
     #hint{
       position:fixed; left:10px; top:max(10px, env(safe-area-inset-top));
+      max-width:calc(100vw - 80px);
       color: rgba(255,255,255,0.55);
       font: 12px/1.3 system-ui, -apple-system, Segoe UI, sans-serif;
       z-index:5;
@@ -325,9 +326,9 @@
       <button id="startReload" type="button" onclick="location.reload()">読み込み直す</button>
     </div>
   </div>
-  <script src="./startup.js?v=stack-10"></script>
+  <script src="./startup.js?v=stack-11"></script>
 
-  <div id="hint">Namima / Tapで聴く ambient</div>
+  <div id="hint">Namima / タップで一音、待つとこだま。左は低く、右は高く。</div>
   <div id="controlBar" aria-label="Namima controls">
     <button id="packetToggle" class="primary-control" type="button" aria-label="Open Music SYNC panel">Music SYNC</button>
     <button id="autoToggle" type="button" aria-label="Toggle safe auto mood">Auto: Off</button>
@@ -384,9 +385,9 @@
   <!-- Tone.js -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 
-  <script src="./audio.js?v=stack-10"></script>
-  <script src="./music-session-adapter.js?v=stack-10"></script>
-  <script src="./sketch.js?v=stack-10"></script>
+  <script src="./audio.js?v=stack-11"></script>
+  <script src="./music-session-adapter.js?v=stack-11"></script>
+  <script src="./sketch.js?v=stack-11"></script>
   <script>
     (() => {
       const button = document.querySelector("[data-share-link]");

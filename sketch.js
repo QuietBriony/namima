@@ -427,11 +427,11 @@ function setup(){
 
 // 自走 bloom が鳴った瞬間に呼ばれる。タップ (0.55) より淡いさざ波を、
 // 音高 (xNorm) に対応した水平位置へ。低音=左 / 高音=右で音と画が同期。
-function spawnBloomRipple(xNorm){
+function spawnBloomRipple(xNorm, note={}){
   if(!started) return;
   const sx = constrain(xNorm, 0, 1) * width;
   const sy = height * (0.3 + Math.random() * 0.4);
-  addSource(sx, sy, 0.3);
+  addSource(sx, sy, note.strength ?? 0.3, { kind:note.kind ?? "bloom" });
   if(visualMode === "orbit") nudgeOrbit(sx, sy, 0.2);
 }
 
@@ -805,6 +805,7 @@ function addSource(x,y, strength=0.7, concept=null){
     strength,
     xNorm: clamp01(x / Math.max(1, width)),
     gestureRate: clamp01(concept?.gesture_rate ?? 0),
+    kind: concept?.kind ?? "touch",
   });
   if(sources.length > SETTINGS.maxSources) sources.shift();
 }
@@ -941,6 +942,27 @@ function draw(){
   } else {
     drawWaterMode(tNow, energy);
   }
+  drawRippleOutlines(tNow);
+}
+
+// A few calm, expanding rings make both the touch and its musical answer
+// readable on a phone without adding particles or a separate animation loop.
+function drawRippleOutlines(tNow){
+  const mood = moodVisual();
+  push();
+  colorMode(HSB, 360, 255, 255, 255);
+  noFill();
+  for(const source of sources){
+    const age = tNow - source.t0;
+    if(age < 0 || age > 1.8) continue;
+    const fade = (1 - age / 1.8) ** 2;
+    const echo = source.kind === "echo" || source.kind === "memory";
+    stroke((echo ? 166 : 193) + mood.hueShift, 100, 190 * mood.brightness, fade * (echo ? 82 : 120));
+    strokeWeight(echo ? 1 : 1.3);
+    const radius = 8 + age * (echo ? 38 : 56);
+    circle(source.x, source.y, radius * 2);
+  }
+  pop();
 }
 
 function drawWaterMode(tNow, energy){

@@ -23,6 +23,12 @@ from the current tide pool, and the tide slowly breathes between home / deep /
 bright moods over a few minutes. Your taps add ripples on top — the bloom recedes
 while you play and returns when you go quiet. Press `Music SYNC` to inspect a packet.
 
+Touches now play a soft water tone immediately, followed by a short answer.
+Left-to-right moves continuously from lower to higher notes. A new touch takes
+the lead, and the ambient voice remembers up to four played notes for 24 seconds
+before drifting away. Expanding rings follow the answers. Sleep mood has one
+quieter answer, and backgrounding clears pending answers and short-term memory.
+
 Checks:
 
 ```powershell

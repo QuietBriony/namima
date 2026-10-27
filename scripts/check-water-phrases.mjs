@@ -100,4 +100,29 @@ busy.engine.onTap(0.5);
 assert.equal(busy.droplet().notes.length,1,"Touch stays audible while background voices are occupied");
 assert.deepEqual(background.map(n=>n.notes.length),before,"Optional background layers wait for free voices");
 busy.engine.panic("end");busy.advance(1);
+
+const pace = fixture(); await pace.engine.start();
+pace.engine.onTap(0.2);
+for(let i=0;i<4;i++){pace.advance(0.2);pace.engine.onTap(0.3+i*0.1);}
+const fastPace = pace.engine.phrase.rhythm_ms;
+assert.ok(fastPace>=280 && fastPace<=400,"Rapid playing has a restrained short answer spacing");
+for(let i=0;i<4;i++){pace.advance(0.9);pace.engine.onTap(0.7-i*0.1);}
+assert.ok(pace.engine.phrase.rhythm_ms>fastPace && pace.engine.phrase.rhythm_ms<=900,"Answer pace follows slower playing within bounds");
+const events=[];pace.engine.setBloomListener((x,note)=>events.push(note));
+pace.engine.setBloom(true);pace.advance(18);
+assert.ok(events.some(e=>e.kind==="memory"),"Quiet-time voice retains the original motif");
+assert.ok(events.some(e=>e.kind==="variation"),"Remembered material gets a bounded musical turn and return");
+assert.ok(pace.engine.phrase.pending<=2);
+pace.engine.setMood("soft_sleep");events.length=0;
+pace.advance(0.3);pace.engine.onTap(0.3);pace.advance(0.6);pace.engine.onTap(0.6);pace.advance(18);
+assert.ok(!events.some(e=>e.kind==="variation"),"Sleep mood keeps sparse recall without extra variation");
+pace.engine.panic("end");pace.advance(1);assert.equal(pace.timers.size,0);
+
+const turn = fixture(); await turn.engine.start();
+turn.engine.onTap(0.54);turn.advance(0.4);turn.engine.onTap(0.61);
+const variations=[];turn.engine.setBloomListener((x,note)=>{if(note.kind==="variation")variations.push(x);});
+turn.engine.setBloom(true);turn.advance(18);
+assert.ok(variations.length>=2);
+assert.notEqual(variations[0],variations[1],"A variation chooses another neighbor when its first turn would repeat home");
+turn.engine.panic("end");turn.advance(1);
 console.log("Namima water phrases: guaranteed touch, rising pitch, bounded echoes/memory, sleep restraint and lifecycle cancellation passed");

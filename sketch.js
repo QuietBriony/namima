@@ -17,8 +17,11 @@ let traceSession = null;
 let lastTraceSummary = null;
 let traceSaveLabelResetAt = 0;
 let reducedMotion = false;
+let scenery = null;
+let autoFromAt = 0;
+let sceneProgressAt = 0;
 
-const MOOD_NAMES = { water_day:"昼の水面", garden_morning:"朝の庭", family_room:"あたたかな部屋", soft_sleep:"眠りの波", transparent_evening:"透きとおる夕方" };
+const MOOD_NAMES = { water_day:"昼の水面", garden_morning:"朝の庭", family_room:"灯りの部屋", soft_sleep:"月あかり", transparent_evening:"透きとおる夕方" };
 
 const MUSIC_STACK_PACKET_STORAGE_KEY = "qb:music-stack:latest-packet:v1";
 const MUSIC_STACK_CHANNEL_NAME = "qb:music-stack:v1";
@@ -27,13 +30,13 @@ const MUSIC_ORCHESTRA_CHANNEL_NAME = "qb:music-stack:orchestra:v1";
 const TRACE_STORAGE_KEY = "namima:session-trace:v1";
 const TRACE_LIMIT = 8;
 
-const AUTO_ROUTE = ["water_day", "garden_morning", "family_room", "transparent_evening"];
+const AUTO_ROUTE = ["water_day", "garden_morning", "transparent_evening", "family_room", "soft_sleep"];
 const MOOD_VISUAL = {
   water_day: { hueShift: 0, brightness: 1.0, response: 1.0, trailDelta: 0 },
-  garden_morning: { hueShift: -24, brightness: 0.88, response: 0.82, trailDelta: 2 },
-  family_room: { hueShift: 12, brightness: 0.72, response: 0.62, trailDelta: 5 },
-  soft_sleep: { hueShift: -10, brightness: 0.46, response: 0.36, trailDelta: 9 },
-  transparent_evening: { hueShift: 18, brightness: 0.82, response: 0.74, trailDelta: 3 },
+  garden_morning: { hueShift: -60, brightness: 0.88, response: 0.82, trailDelta: 2 },
+  family_room: { hueShift: -150, brightness: 0.72, response: 0.62, trailDelta: 5 },
+  soft_sleep: { hueShift: 30, brightness: 0.46, response: 0.36, trailDelta: 9 },
+  transparent_evening: { hueShift: 120, brightness: 0.82, response: 0.74, trailDelta: 3 },
 };
 
 const SETTINGS = {
@@ -54,8 +57,8 @@ const SETTINGS = {
   orbitLineDistance: 310,
   orbitDamping: 0.982,
   orbitMaxSpeed: 1.15,
-  autoMinMs: 180000,
-  autoMaxMs: 480000,
+  autoMinMs: 28000,
+  autoMaxMs: 42000,
 };
 
 const LEVEL_VALUES = Object.freeze({
@@ -77,7 +80,8 @@ const LEVEL_VALUES = Object.freeze({
 });
 
 function isMobile(){
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  return (typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
+    || (typeof windowWidth === "number" && windowWidth <= 680);
 }
 
 function clamp01(value){
@@ -370,6 +374,7 @@ function isUiControlTarget(target){
 function setup(){
   const surface = createCanvas(windowWidth, windowHeight);
   setupCanvasGestures(surface.elt);
+  scenery = window.NamimaScenery?.create() ?? null;
   const motionPreference = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   reducedMotion = Boolean(motionPreference?.matches);
   motionPreference?.addEventListener?.("change", e => { reducedMotion = e.matches; });
@@ -410,6 +415,11 @@ function setup(){
     autoToggle.addEventListener("click", () => setAuto(!autoOn));
   }
 
+  document.getElementById("nextSceneButton")?.addEventListener("click", () => cycleScene(true));
+  const installHelp = document.getElementById("install-hint");
+  const extras = document.querySelector?.(".advanced-controls .tools-content");
+  if(installHelp && extras) extras.appendChild(installHelp);
+
   const moodSelect = document.getElementById("moodSelect");
   if(moodSelect){
     moodSelect.addEventListener("change", (e) => {
@@ -449,6 +459,8 @@ async function startAudio(){
 function windowResized(){
   endWaterGesture();
   resizeCanvas(windowWidth, windowHeight);
+  const count = isMobile() ? SETTINGS.particleCountMobile : SETTINGS.particleCountDesktop;
+  particles = Array.from({length:count}, () => makeParticle(random(width), random(height)));
   initOrbitBodies();
 }
 
@@ -506,7 +518,7 @@ function moodVisual(){
 function updateControlUi(){
   const autoToggle = document.getElementById("autoToggle");
   if(autoToggle){
-    autoToggle.textContent = autoOn ? "景色：おまかせ" : "景色：そのまま";
+    autoToggle.textContent = autoOn ? "めぐる：ON" : "おまかせ";
     autoToggle.setAttribute("aria-pressed", String(autoOn));
   }
 
@@ -515,6 +527,11 @@ function updateControlUi(){
 
   const moodBadge = document.getElementById("moodBadge");
   if(moodBadge) moodBadge.textContent = MOOD_NAMES[activeMood] ?? activeMood;
+  const detail = document.getElementById("sceneDetail");
+  if(detail) detail.textContent = window.NamimaScenery?.info(activeMood).detail ?? "";
+  const journey = document.getElementById("sceneJourney");
+  if(journey) journey.hidden = !autoOn;
+  document.body?.setAttribute?.("data-scene", activeMood);
 }
 
 function setPacketStatus(message, type){
@@ -608,7 +625,7 @@ function receiveMusicStackPacket(payload, source="sync"){
     setPacketStatus(`SYNC受信: ${surface} / ${translation.source_session_id || source} を ${translation.mood_id}${musicMicHint(translation)} へ反映しました。Tap to startまで音は始まりません。`, "ok");
     if(toggle) toggle.textContent = "Music SYNC: synced";
     const moodBadge = document.getElementById("moodBadge");
-    if(moodBadge) moodBadge.textContent = `Music: ${translation.mood_id}`;
+    if(moodBadge) moodBadge.textContent = MOOD_NAMES[translation.mood_id] ?? translation.mood_id;
     return true;
   } catch (error) {
     setPacketStatus(`SYNC packetを読めません: ${error.message}`, "error");
@@ -722,7 +739,10 @@ async function loadMoodProfiles(){
 }
 
 function scheduleNextAuto(nowMs){
+  autoFromAt = nowMs;
   nextAutoAt = nowMs + random(SETTINGS.autoMinMs, SETTINGS.autoMaxMs);
+  const progress = document.getElementById?.("sceneProgress");
+  if(progress) progress.value = 0;
 }
 
 function setMood(mood, options={}){
@@ -732,15 +752,26 @@ function setMood(mood, options={}){
   if(options.manual){
     const routeIndex = AUTO_ROUTE.indexOf(activeMood);
     if(routeIndex >= 0) autoIndex = routeIndex;
+    if(autoOn) scheduleNextAuto(millis());
   }
   syncAudioMood();
   updateControlUi();
 }
 
+function cycleScene(manual=true){
+  const index = Math.max(0, AUTO_ROUTE.indexOf(activeMood));
+  autoIndex = (index + 1) % AUTO_ROUTE.length;
+  setMood(AUTO_ROUTE[autoIndex], {manual});
+}
+
 function setAuto(enabled){
+  const wasEnabled = autoOn;
   autoOn = Boolean(enabled);
   if(traceSession) trackAutoChange(autoOn);
-  if(autoOn && nextAutoAt <= millis()) scheduleNextAuto(millis());
+  // Give immediate visual feedback; no audio starts until the native START.
+  if(autoOn && !wasEnabled) cycleScene(false);
+  if(autoOn) scheduleNextAuto(millis());
+  else nextAutoAt = 0;
   syncAudioMood();
   updateControlUi();
 }
@@ -797,6 +828,11 @@ if(document.readyState === "loading"){
 function advanceAutoMood(nowMs){
   if(!autoOn) return;
   if(nextAutoAt <= 0) scheduleNextAuto(nowMs);
+  if(nowMs - sceneProgressAt >= 250){
+    const progress = document.getElementById("sceneProgress");
+    if(progress) progress.value = clamp01((nowMs - autoFromAt) / Math.max(1, nextAutoAt - autoFromAt));
+    sceneProgressAt = nowMs;
+  }
   if(nowMs < nextAutoAt) return;
 
   autoIndex = (autoIndex + 1) % AUTO_ROUTE.length;
@@ -940,10 +976,13 @@ function draw(){
   noStroke();
   const mood = moodVisual();
   const trailAlpha = (visualMode === "orbit" ? SETTINGS.orbitTrailAlpha : SETTINGS.trailAlpha) + mood.trailDelta;
-  fill(5, 6, 10, trailAlpha);
-  rect(0,0,width,height);
-
   const tNow = millis()/1000;
+  if(scenery && typeof drawingContext !== "undefined"){
+    scenery.draw(drawingContext, activeMood, width, height, tNow, {reducedMotion, opacity:0.16});
+  }else{
+    fill(5, 6, 10, trailAlpha);
+    rect(0,0,width,height);
+  }
   advanceAutoMood(millis());
   updateTraceSaveUi();
 
@@ -988,18 +1027,21 @@ function draw(){
 // A bounded set of flowing contours gives the quiet surface a readable body.
 // No textures, new particles, audio nodes or independent animation timers.
 function drawWaterLight(tNow){
+  if(activeMood === "family_room") return;
   const mood = moodVisual();
   const phase = reducedMotion ? 0 : tNow * 0.12;
   push();
   colorMode(HSB, 360, 255, 255, 255);
   noFill();
   strokeWeight(1);
-  for(let row=0; row<10; row++){
+  const rows = activeMood === "garden_morning" ? 4 : activeMood === "water_day" ? 10 : 5;
+  for(let row=0; row<rows; row++){
     stroke(181 + mood.hueShift + row * 1.4, 95, 135 * mood.brightness, 24);
     beginShape();
     for(let col=0; col<=32; col++){
       const x = width * col / 32;
-      const y = height * (0.24 + row * 0.055)
+      const base = activeMood === "water_day" ? 0.48 : activeMood === "garden_morning" ? 0.28 : 0.66;
+      const y = height * (base + row * (activeMood === "garden_morning" ? 0.09 : 0.045))
         + Math.sin(col * 0.19 + phase + row * 0.22) * height * 0.038
         + Math.cos(col * 0.32 - phase * 0.7) * height * 0.012;
       vertex(x, y);
@@ -1044,7 +1086,8 @@ function drawRippleOutlines(tNow){
 function drawWaterMode(tNow, energy){
   const mood = moodVisual();
   colorMode(HSB, 360, 255, 255, 255);
-  blendMode(BLEND);
+  // Light adds to the scenery; dim particles must never paint dark flecks.
+  blendMode(ADD);
 
   for(const p of particles){
     const fg = fieldAndGrad(p.x, p.y, tNow);
@@ -1066,6 +1109,8 @@ function drawWaterMode(tNow, energy){
     if(p.y > height) p.y -= height;
 
     const ridge = Math.min(1, Math.abs(fg.v) * 1.8);
+    // At rest, let the scenery breathe instead of stamping dark particle dots.
+    if(ridge < 0.035) continue;
     const b = (18 + 140 * ridge + 40 * energy) * mood.brightness;
     const a = 40 + 140 * ridge * p.glow;
     const lx = p.vx * SETTINGS.lineScale * (0.6 + ridge);
@@ -1076,13 +1121,12 @@ function drawWaterMode(tNow, energy){
     line(px, py, px - lx, py - ly);
 
     if(ridge > 0.35){
-      blendMode(ADD);
       stroke(p.hue + mood.hueShift + ridge * 20, 200, 180 * mood.brightness, 35 + 80 * ridge);
       strokeWeight(p.w * 1.8);
       line(px, py, px - lx * 0.9, py - ly * 0.9);
-      blendMode(BLEND);
     }
   }
+  blendMode(BLEND);
 }
 
 function drawOrbitMode(tNow, energy){

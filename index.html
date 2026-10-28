@@ -251,6 +251,37 @@
         min-height:40px;
       }
     }
+
+    #startOverlay { pointer-events:none; background:rgba(3,14,19,.16); }
+    #startOverlay .start-card { pointer-events:auto; }
+    body:has(#packetPanel.is-open) #startOverlay, body:has(.advanced-controls[open]) #startOverlay { visibility:hidden; }
+    #hint, #sceneCaption { text-shadow:0 2px 16px #031017; }
+    #sceneCaption { position:fixed; left:22px; right:22px; top:122px; z-index:5; color:#e4f5ed; pointer-events:none; font:13px/1.6 system-ui,sans-serif; }
+    .scene-eyebrow { font-size:10px; letter-spacing:.18em; color:#adc9c9; }
+    #sceneCaption #moodBadge { font-size:24px; font-weight:500; padding:2px 0; border:0; border-radius:0; background:none; color:inherit; }
+    #sceneDetail { margin:2px 0 0; color:#c9dddd; font-size:12px; }
+    #sceneJourney { margin-top:12px; width:175px; font-size:10px; color:#c9dddd; }
+    #sceneJourney[hidden] { display:none; }
+    #sceneProgress { display:block; width:100%; height:3px; margin-top:5px; border:0; accent-color:#b5dbbf; }
+    #bottomUi { position:fixed; left:10px; right:10px; bottom:max(10px,env(safe-area-inset-bottom)); z-index:12; pointer-events:none; }
+    #bottomUi #surfaceKey { position:static; margin:0 12px 9px; font-size:10px; color:#bdd4d4; }
+    #bottomUi #controlBar { position:static; display:grid; grid-template-columns:minmax(0,1fr); justify-content:stretch; justify-items:stretch; gap:8px; padding:12px; background:rgba(5,21,29,.82); pointer-events:auto; }
+    .scene-controls, .surface-controls { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+    #controlBar #moodSelect { flex:1; width:0; max-width:none; border-radius:12px; padding:9px 12px; background:rgba(160,210,199,.09); }
+    #controlBar #nextSceneButton { border-radius:12px; min-width:112px; color:#cbead3; }
+    #controlBar .surface-controls > button { flex:1; min-width:0; white-space:nowrap; padding:7px 8px; font-size:11px; }
+    #controlBar .advanced-controls summary { display:flex; align-items:center; justify-content:center; box-sizing:border-box; height:44px; padding:7px 9px; font-size:11px; }
+    #controlBar .advanced-controls[open] { display:block; position:relative; padding:0; border:0; }
+    #controlBar .tools-content { position:absolute; bottom:calc(100% + 12px); right:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:min(280px,calc(100vw - 44px)); box-sizing:border-box; padding:12px; border:1px solid rgba(176,227,222,.25); border-radius:16px; background:rgba(5,21,29,.96); }
+    #controlBar .advanced-controls:not([open]) .tools-content { display:none; }
+    #controlBar .tools-content > button { margin:0; min-width:0; }
+    .advanced-controls[open] > button, #controlBar .install-hint { margin-top:6px; }
+    body > .install-hint { display:none; }
+    #controlBar .install-hint { position:static; grid-column:1/-1; right:auto; top:auto; transform:none; display:flex; flex-wrap:wrap; max-width:none; margin:0; border-radius:12px; }
+    #controlBar .install-hint__details { position:static; flex-basis:100%; }
+    #controlBar .install-hint[hidden] { display:none; }
+    @media(min-width:760px){ #bottomUi { left:auto; width:460px; right:22px; bottom:22px; } #sceneCaption { top:145px; } #sceneCaption #moodBadge { font-size:34px; } }
+    @media(max-height:520px){ #sceneCaption { top:90px; } #sceneCaption #moodBadge { font-size:18px; } #sceneDetail, #surfaceKey { display:none; } #bottomUi { left:auto; width:min(390px,calc(100vw - 20px)); } #sceneJourney { margin-top:3px; } }
   </style>
 </head>
 <body>
@@ -338,27 +369,38 @@
       <button id="startReload" type="button" onclick="location.reload()">読み込み直す</button>
     </div>
   </div>
-  <script src="./startup.js?v=stack-13"></script>
+  <script src="./startup.js?v=stack-14"></script>
 
-  <div id="hint"><strong>Namima</strong><span>なぞって、ひとふし。<br>手を離すと、水面から音の返事。</span></div>
-  <div id="surfaceKey"><span>◯ 指の波紋</span><span>• こだま・小さな変奏</span><br>左は低く、右は高く。間をあけると、響きがほどけます。</div>
-  <div id="controlBar" aria-label="Namima controls">
-    <button id="modeToggle" type="button" aria-label="映像を切り替える：現在は水の波紋">水の波紋</button>
-    <button id="pauseButton" type="button">ひと休み</button>
-    <button id="packetToggle" class="primary-control" type="button" aria-label="Open Music SYNC panel">Music SYNC</button>
-    <button id="autoToggle" type="button" aria-label="景色をゆっくりおまかせで変える" aria-pressed="false">景色：そのまま</button>
-    <div id="moodBadge" aria-live="polite">mood: water_day</div>
-    <details class="advanced-controls">
-      <summary>細かく</summary>
-      <select id="moodSelect" aria-label="Select mood">
-        <option value="water_day">昼の水面</option>
-        <option value="garden_morning">朝の庭</option>
-        <option value="family_room">あたたかな部屋</option>
-        <option value="soft_sleep">眠りの波</option>
-        <option value="transparent_evening">透きとおる夕方</option>
-      </select>
-      <button id="traceSave" type="button" aria-label="Save local trace summary">TRACE</button>
-    </details>
+  <div id="hint"><strong>Namima</strong><span>なぞって、音の返事を待つ。</span></div>
+  <div id="sceneCaption">
+    <span class="scene-eyebrow">いまの景色</span>
+    <div id="moodBadge" aria-live="polite">昼の水面</div>
+    <p id="sceneDetail">光がほどける、青い入り江。</p>
+    <div id="sceneJourney" hidden><span>約30〜40秒で、次の景色へ</span><progress id="sceneProgress" max="1" value="0" aria-hidden="true"></progress></div>
+  </div>
+  <div id="bottomUi">
+    <div id="surfaceKey"><span>◯ 指の波紋</span><span>• こだま・小さな変奏</span><br>左は低く、右は高く。響きがほどける間も楽しんで。</div>
+    <div id="controlBar" aria-label="Namima controls">
+      <div class="scene-controls">
+        <select id="moodSelect" aria-label="景色を選ぶ">
+          <option value="water_day">昼の水面</option>
+          <option value="garden_morning">朝の庭</option>
+          <option value="transparent_evening">透きとおる夕方</option>
+          <option value="family_room">灯りの部屋</option>
+          <option value="soft_sleep">月あかり</option>
+        </select>
+        <button id="nextSceneButton" type="button">次の景色 →</button>
+      </div>
+      <div class="surface-controls">
+        <button id="autoToggle" type="button" aria-label="景色をおまかせでめぐる" aria-pressed="false">おまかせ</button>
+        <button id="modeToggle" type="button" aria-label="映像を切り替える：現在は水の波紋">水の波紋</button>
+        <button id="pauseButton" type="button">ひと休み</button>
+        <details class="advanced-controls"><summary>道具</summary><div class="tools-content">
+          <button id="packetToggle" class="primary-control" type="button" aria-label="Open Music SYNC panel">Music SYNC</button>
+          <button id="traceSave" type="button" aria-label="Save local trace summary">TRACE</button>
+        </div></details>
+      </div>
+    </div>
   </div>
 
   <section id="packetPanel" aria-label="Music SYNC mood receiver">
@@ -399,9 +441,10 @@
   <!-- Tone.js -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 
-  <script src="./audio.js?v=stack-13"></script>
-  <script src="./music-session-adapter.js?v=stack-13"></script>
-  <script src="./sketch.js?v=stack-13"></script>
+  <script src="./audio.js?v=stack-14"></script>
+  <script src="./music-session-adapter.js?v=stack-14"></script>
+  <script src="./scenery.js?v=stack-14"></script>
+  <script src="./sketch.js?v=stack-14"></script>
   <script>
     (() => {
       const button = document.querySelector("[data-share-link]");

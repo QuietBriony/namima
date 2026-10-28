@@ -3,7 +3,7 @@
 2026-10-28・水面の光（v13候補）: 波の等高線と指の波紋を見やすくし、こだま／変奏は暖色の点と波で描く。
 映像切替を表に出し、「ひと休み」で音を停止してタップで再開できる。
 景色名は日本語、動きを減らす設定では粒子の漂流を省く。音符・合成・響きの設定はv12と同じ。
-画面の開始は手動のまま。実iPhoneの操作・聴感は別途確認し、公開には人間レビューが必要。
+画面の開始は手動のまま。実iPhoneの操作・聴感は別途確認し、必須検証後に既存本番へ公開し、PWAでの本人試聴を受けて調整する。
 
 ## Current stack role
 
@@ -60,7 +60,7 @@ Namima は **Music のライト版**ではなく、Music Stack の
 Music session mood adapter: `music-session-adapter.js` exposes
 `window.NamimaMusicSessionAdapter.translateMusicSessionPacket(packet)` and
 `window.namimaAdapter.applyMusicSessionPacket(packet)` for metadata-only,
-human-reviewed Music packet routing. It never stores audio, samples, lyrics, or
+metadata-only Music packet routing with manual audio start. It never stores audio, samples, lyrics, or
 raw interaction streams.
 
 Current stack alignment:

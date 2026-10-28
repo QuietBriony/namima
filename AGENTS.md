@@ -1,5 +1,17 @@
 # AGENTS.md — namima repo operating contract
 
+## 通常の改善は検証後に本番へ（2026-10-28・本人指示）
+
+本人が任せたMusic関連の改善は、公開前の人間レビュー・試聴承認を必須にしない。
+PWAは既存の本番へ出してから本人が聴く運用とし、実装 → 必須検証 → 自分の差分確認 →
+merge / main push → 既存の本番へdeploy → 公開版とPWAの更新確認 → 本人の感想で調整、まで進める。
+通常の全件検査経路では、別担当の独立レビューも公開の必須条件にしない。
+同じ最終HEADのstack-check（FAIL 0 / SKIP 0 / 0 BAD）、各repoの必須検査、cache同期、
+担当scope・clean状態・変更履歴・公開反映の証拠・ロールバック手段は維持する。
+実iPhoneの聴感が未確認でも公開を止めず、未確認と明記して本番での試聴へ渡す。
+新しい公開先、未承認の音源追加、認証や権限の変更、外部機器のarm・record・MIDI送信などは
+この通常公開ルールへ含めない。各アプリ自身の手動開始・metadata-onlyの境界も維持する。
+
 このリポを触る agent (claude code / codex / 他) が **最初に読む** namima 固有ルール。
 music-stack 全体の自走開発エンジンは `Music/docs/autonomy/` にある。
 
@@ -41,7 +53,7 @@ namima 固有の境界:
 7. GitHub Actions を勝手に足さない。
 8. archive / delete / settings 操作はしない（要・別承認）。
 
-main runtime ファイル（変更は慎重に・人間レビュー前提）:
+main runtime ファイル（変更は慎重に・検証後に本番公開）:
 `sketch.js`（p5.js visuals）/ `audio.js`（WebAudio + Tone.js）/
 `music-session-adapter.js`（metadata-only SYNC translation）/ `sw.js`。
 
@@ -86,7 +98,7 @@ bump 後に `node scripts/check-pwa-static.mjs` で整合を確認する。
 |---|---|
 | docs only | main 直 push 可 |
 | 非 runtime コード（scripts / profiles など） | feature branch + PR |
-| runtime（sketch.js / audio.js / adapter / sw.js）・音・mood を変える | feature branch + PR + 人間レビュー |
+| runtime（sketch.js / audio.js / adapter / sw.js）・音・mood を変える | feature branch + PR → 必須検証・差分確認 → agent merge・既存本番へdeploy |
 
 作業前に **必ず `git pull --ff-only origin main`** で最新化する。
 強制 push（`--force`）は禁止。
@@ -105,8 +117,8 @@ bump 後に `node scripts/check-pwa-static.mjs` で整合を確認する。
 自律ランの安全上限:
 
 - ✅ docs / BACKLOG / SESSION-LEDGER の整備 — main 直 push 可
-- ✅ 非 runtime コード — feature branch + PR まで（merge は人間）
-- ❌ runtime（sketch.js / audio.js / adapter / sw.js）・音・mood — 人間レビュー必須
-- ❌ 無人 merge、GitHub Actions 追加、dependency 追加、archive / delete 操作
+- ✅ 非 runtime コード — feature branch + PR、検証後にagent merge・既存本番へdeploy
+- ✅ runtime（sketch.js / audio.js / adapter / sw.js）・音・mood — 必須検証後にagent merge・既存本番へdeployし、PWAでの本人試聴を受けて調整
+- ❌ 未検証・他担当の変更のmerge、GitHub Actions追加、dependency追加、archive / delete操作
 
 詳細は `Music/docs/autonomy/AUTONOMOUS-RUN.md`。

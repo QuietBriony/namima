@@ -16,6 +16,9 @@ let waterGesture = null;
 let traceSession = null;
 let lastTraceSummary = null;
 let traceSaveLabelResetAt = 0;
+let reducedMotion = false;
+
+const MOOD_NAMES = { water_day:"昼の水面", garden_morning:"朝の庭", family_room:"あたたかな部屋", soft_sleep:"眠りの波", transparent_evening:"透きとおる夕方" };
 
 const MUSIC_STACK_PACKET_STORAGE_KEY = "qb:music-stack:latest-packet:v1";
 const MUSIC_STACK_CHANNEL_NAME = "qb:music-stack:v1";
@@ -367,6 +370,9 @@ function isUiControlTarget(target){
 function setup(){
   const surface = createCanvas(windowWidth, windowHeight);
   setupCanvasGestures(surface.elt);
+  const motionPreference = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  reducedMotion = Boolean(motionPreference?.matches);
+  motionPreference?.addEventListener?.("change", e => { reducedMotion = e.matches; });
   pixelDensity(1);
   frameRate(isMobile() ? 30 : 60);
   background(0);
@@ -393,21 +399,15 @@ function setup(){
 
   const modeToggle = document.getElementById("modeToggle");
   if(modeToggle){
-    modeToggle.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      cycleVisualMode();
-    }, {passive:false});
+    modeToggle.addEventListener("click", cycleVisualMode);
     setVisualMode(visualMode);
   }
 
+  document.getElementById("pauseButton")?.addEventListener("click", () => quietForPageLifecycle("ひと休み"));
+
   const autoToggle = document.getElementById("autoToggle");
   if(autoToggle){
-    autoToggle.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setAuto(!autoOn);
-    }, {passive:false});
+    autoToggle.addEventListener("click", () => setAuto(!autoOn));
   }
 
   const moodSelect = document.getElementById("moodSelect");
@@ -457,7 +457,7 @@ function makeParticle(x,y){
     x, y,
     vx: random(-0.2,0.2),
     vy: random(-0.2,0.2),
-    hue: random(190, 285),
+    hue: random(172, 220),
     w: random(0.6, 1.8),
     glow: random(0.25, 0.85),
   };
@@ -490,8 +490,8 @@ function setVisualMode(mode){
   if(traceSession) trackVisualChange(visualMode);
   const modeToggle = document.getElementById("modeToggle");
   if(modeToggle){
-    modeToggle.textContent = visualMode === "orbit" ? "Visual: Orbit" : "Visual: Water";
-    modeToggle.setAttribute("aria-label", `Switch visual mode, current mode ${modeToggle.textContent}`);
+    modeToggle.textContent = visualMode === "orbit" ? "光の軌道" : "水の波紋";
+    modeToggle.setAttribute("aria-label", `映像を切り替える：現在は${modeToggle.textContent}`);
   }
 }
 
@@ -505,13 +505,16 @@ function moodVisual(){
 
 function updateControlUi(){
   const autoToggle = document.getElementById("autoToggle");
-  if(autoToggle) autoToggle.textContent = autoOn ? "Auto: On" : "Auto: Off";
+  if(autoToggle){
+    autoToggle.textContent = autoOn ? "景色：おまかせ" : "景色：そのまま";
+    autoToggle.setAttribute("aria-pressed", String(autoOn));
+  }
 
   const moodSelect = document.getElementById("moodSelect");
   if(moodSelect) moodSelect.value = activeMood;
 
   const moodBadge = document.getElementById("moodBadge");
-  if(moodBadge) moodBadge.textContent = `mood: ${activeMood}`;
+  if(moodBadge) moodBadge.textContent = MOOD_NAMES[activeMood] ?? activeMood;
 }
 
 function setPacketStatus(message, type){
@@ -932,6 +935,8 @@ function fieldAndGrad(x, y, tNow){
 }
 
 function draw(){
+  // The particle layers use HSB. Reset before the next translucent RGB wash.
+  colorMode(RGB, 255, 255, 255, 255);
   noStroke();
   const mood = moodVisual();
   const trailAlpha = (visualMode === "orbit" ? SETTINGS.orbitTrailAlpha : SETTINGS.trailAlpha) + mood.trailDelta;
@@ -969,12 +974,39 @@ function draw(){
   const energy = concept.visual_energy;
   if(window.AudioEngine) window.AudioEngine.updateEnergy(concept);
 
-  if(visualMode === "orbit"){
+  drawWaterLight(tNow);
+  if(reducedMotion){
+    // Touches and musical answers remain visible, without drifting particles.
+  } else if(visualMode === "orbit"){
     drawOrbitMode(tNow, energy);
   } else {
     drawWaterMode(tNow, energy);
   }
   drawRippleOutlines(tNow);
+}
+
+// A bounded set of flowing contours gives the quiet surface a readable body.
+// No textures, new particles, audio nodes or independent animation timers.
+function drawWaterLight(tNow){
+  const mood = moodVisual();
+  const phase = reducedMotion ? 0 : tNow * 0.12;
+  push();
+  colorMode(HSB, 360, 255, 255, 255);
+  noFill();
+  strokeWeight(1);
+  for(let row=0; row<10; row++){
+    stroke(181 + mood.hueShift + row * 1.4, 95, 135 * mood.brightness, 24);
+    beginShape();
+    for(let col=0; col<=32; col++){
+      const x = width * col / 32;
+      const y = height * (0.24 + row * 0.055)
+        + Math.sin(col * 0.19 + phase + row * 0.22) * height * 0.038
+        + Math.cos(col * 0.32 - phase * 0.7) * height * 0.012;
+      vertex(x, y);
+    }
+    endShape();
+  }
+  pop();
 }
 
 // A few calm, expanding rings make both the touch and its musical answer
@@ -986,13 +1018,20 @@ function drawRippleOutlines(tNow){
   noFill();
   for(const source of sources){
     const age = tNow - source.t0;
-    if(age < 0 || age > 1.8) continue;
-    const fade = (1 - age / 1.8) ** 2;
+    if(age < 0 || age > 4.8) continue;
+    const fade = (1 - age / 4.8) ** 2;
     const echo = source.kind === "echo" || source.kind === "memory" || source.kind === "variation";
-    stroke((echo ? 166 : 193) + mood.hueShift, 100, 190 * mood.brightness, fade * (echo ? 82 : 120));
-    strokeWeight(echo ? 1 : 1.3);
-    const radius = 8 + age * (echo ? 38 : 56);
-    circle(source.x, source.y, radius * 2);
+    const hue = (echo ? 39 : 183) + (echo ? 0 : mood.hueShift);
+    const radius = reducedMotion ? 26 : 10 + age * (echo ? 30 : 47);
+    for(let ring=0; ring<3; ring++){
+      stroke(hue, echo ? 105 : 80, 240 * mood.brightness, fade * (150 - ring * 34));
+      strokeWeight(ring === 0 ? 1.5 : 0.8);
+      ellipse(source.x, source.y, radius * 2 + ring * 15, radius * 1.12 + ring * 9);
+    }
+    noStroke();
+    fill(hue, 75, 250 * mood.brightness, fade * 210);
+    circle(source.x, source.y, echo ? 7 : 5);
+    noFill();
   }
   if(started && waterGesture){
     stroke(178 + mood.hueShift, 90, 205 * mood.brightness, 155);

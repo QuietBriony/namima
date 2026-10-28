@@ -15,12 +15,12 @@
   <meta name="apple-mobile-web-app-title" content="Namima" />
   <meta name="mobile-web-app-capable" content="yes" />
   <style>
-    html, body { margin:0; padding:0; overflow:hidden; background:#05060a; }
+    html, body { margin:0; padding:0; overflow:hidden; background:#07191f; }
     canvas { display:block; }
     #startOverlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
-      background:rgba(0,0,0,0.65);
+      background:rgba(3,14,19,0.44);
       color:#e8e8e8;
       font: 16px/1.4 system-ui, -apple-system, Segoe UI, sans-serif;
       letter-spacing:0.02em;
@@ -29,10 +29,13 @@
       -webkit-tap-highlight-color: transparent;
     }
     #startOverlay .box{
-      padding:18px 20px;
-      border:1px solid rgba(255,255,255,0.18);
-      border-radius:12px;
-      background:rgba(10,10,14,0.55);
+      padding:28px 32px;
+      border:1px solid rgba(165,240,220,0.6);
+      border-radius:50%;
+      min-width:220px;
+      min-height:220px;
+      background:radial-gradient(circle at 35% 25%,rgba(64,132,133,.55),rgba(9,29,38,.86));
+      box-shadow:0 0 0 12px rgba(119,228,215,.04),0 0 0 32px rgba(119,228,215,.025);
       max-width: 320px;
       text-align:center;
       color:inherit;
@@ -58,13 +61,23 @@
       font-size:12px;
     }
     #hint{
-      position:fixed; left:10px; top:max(10px, env(safe-area-inset-top));
+      position:fixed; left:22px; top:max(22px, env(safe-area-inset-top));
       max-width:calc(100vw - 80px);
-      color: rgba(255,255,255,0.55);
-      font: 12px/1.3 system-ui, -apple-system, Segoe UI, sans-serif;
+      color:#c4e5e2;
+      font: 12px/1.7 system-ui, -apple-system, Segoe UI, sans-serif;
       z-index:5;
       user-select:none;
     }
+    #hint strong { display:block; color:#e3f8ef; font-size:28px; font-weight:500; letter-spacing:.12em; }
+    #hint span { display:block; max-width:250px; margin-top:6px; }
+    #surfaceKey { position:fixed; left:22px; right:22px; bottom:140px; z-index:5; color:#afcecf; font:11px/1.8 system-ui,sans-serif; pointer-events:none; }
+    #surfaceKey span { color:#9ce5df; margin-right:16px; }
+    #surfaceKey span:last-child { color:#e3c792; }
+    #controlBar { padding:12px; border:1px solid rgba(176,227,222,.2); border-radius:20px; background:rgba(5,21,29,.86); backdrop-filter:blur(10px); }
+    #controlBar button, #controlBar select, #controlBar summary { min-height:44px; }
+    #controlBar button:focus-visible, #controlBar summary:focus-visible, #controlBar select:focus-visible { outline:2px solid #a7e5d9; outline-offset:3px; }
+    #pauseButton { color:#e3c792; }
+    @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto; } }
     #controlBar{
       position:fixed; left:10px; right:10px; bottom:max(10px, env(safe-area-inset-bottom));
       z-index:12;
@@ -244,11 +257,9 @@
   <button class="share-link-button" type="button" data-share-link aria-label="Share or copy this page URL">URL</button>
   <span class="share-link-status" data-share-link-status hidden></span>
 
-  <!-- PWA install hint (rolled out from Music v206). Hidden when running
-       standalone or after dismissal (per-origin localStorage). PWA install
-       gives noticeably less BG-tab throttling = more stable BG playback. -->
+  <!-- Optional install help; backgrounding still stops audio safely. -->
   <style>
-    .install-hint { position: fixed; top: max(8px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 1100; max-width: min(92vw, 540px); padding: 4px 6px 4px 10px; background: rgba(8,18,28,0.78); border: 1px solid rgba(180,200,230,0.22); border-radius: 999px; color: rgba(230,240,250,0.92); font: 11px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing: 0.04em; backdrop-filter: blur(8px); display: flex; align-items: center; gap: 6px; }
+    .install-hint { position: fixed; right:16px; top:60px; z-index:20; max-width:240px; padding:4px 6px; background:rgba(8,18,28,.86); border:1px solid rgba(180,200,230,.22); border-radius:14px; color:#c4d9dd; font:11px/1.3 system-ui,sans-serif; display:flex; align-items:center; gap:4px; }
     .install-hint[hidden] { display: none; }
     .install-hint__toggle, .install-hint__action, .install-hint__dismiss { background: transparent; border: 1px solid rgba(180,200,230,0.28); border-radius: 999px; color: inherit; font: inherit; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
     .install-hint__toggle { border: none; padding: 3px 4px; }
@@ -259,13 +270,14 @@
     .install-hint__details p { margin: 2px 0; }
   </style>
   <div id="install-hint" class="install-hint" hidden>
-    <button id="install-hint-toggle" class="install-hint__toggle" type="button" aria-expanded="false">📲 PWA推奨：バックグラウンド再生が安定</button>
+    <button id="install-hint-toggle" class="install-hint__toggle" type="button" aria-expanded="false">ホーム画面に置く</button>
     <button id="install-hint-action" class="install-hint__action" type="button" hidden>インストール</button>
     <button id="install-hint-dismiss" class="install-hint__dismiss" type="button" aria-label="閉じる">×</button>
     <div id="install-hint-details" class="install-hint__details" hidden>
       <p><b>iOS Safari</b> ＝ 共有 → ホーム画面に追加</p>
       <p><b>Android Chrome</b> ＝ 右上 ⋮ → アプリをインストール</p>
       <p><b>PC Chrome / Edge</b> ＝ アドレスバー右の「インストール」アイコン</p>
+      <p>画面を離れると音は休みます。戻ったらタップで再開。</p>
     </div>
   </div>
   <script>
@@ -326,23 +338,25 @@
       <button id="startReload" type="button" onclick="location.reload()">読み込み直す</button>
     </div>
   </div>
-  <script src="./startup.js?v=stack-12"></script>
+  <script src="./startup.js?v=stack-13"></script>
 
-  <div id="hint">Namima / なぞって音をつなぐ。手を離すと、こだまと小さな変奏。</div>
+  <div id="hint"><strong>Namima</strong><span>なぞって、ひとふし。<br>手を離すと、水面から音の返事。</span></div>
+  <div id="surfaceKey"><span>◯ 指の波紋</span><span>• こだま・小さな変奏</span><br>左は低く、右は高く。間をあけると、響きがほどけます。</div>
   <div id="controlBar" aria-label="Namima controls">
+    <button id="modeToggle" type="button" aria-label="映像を切り替える：現在は水の波紋">水の波紋</button>
+    <button id="pauseButton" type="button">ひと休み</button>
     <button id="packetToggle" class="primary-control" type="button" aria-label="Open Music SYNC panel">Music SYNC</button>
-    <button id="autoToggle" type="button" aria-label="Toggle safe auto mood">Auto: Off</button>
+    <button id="autoToggle" type="button" aria-label="景色をゆっくりおまかせで変える" aria-pressed="false">景色：そのまま</button>
     <div id="moodBadge" aria-live="polite">mood: water_day</div>
     <details class="advanced-controls">
       <summary>細かく</summary>
       <select id="moodSelect" aria-label="Select mood">
-        <option value="water_day">water_day</option>
-        <option value="garden_morning">garden_morning</option>
-        <option value="family_room">family_room</option>
-        <option value="soft_sleep">soft_sleep</option>
-        <option value="transparent_evening">transparent_evening</option>
+        <option value="water_day">昼の水面</option>
+        <option value="garden_morning">朝の庭</option>
+        <option value="family_room">あたたかな部屋</option>
+        <option value="soft_sleep">眠りの波</option>
+        <option value="transparent_evening">透きとおる夕方</option>
       </select>
-      <button id="modeToggle" type="button" aria-label="Switch visual mode">Visual: Water</button>
       <button id="traceSave" type="button" aria-label="Save local trace summary">TRACE</button>
     </details>
   </div>
@@ -385,9 +399,9 @@
   <!-- Tone.js -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 
-  <script src="./audio.js?v=stack-12"></script>
-  <script src="./music-session-adapter.js?v=stack-12"></script>
-  <script src="./sketch.js?v=stack-12"></script>
+  <script src="./audio.js?v=stack-13"></script>
+  <script src="./music-session-adapter.js?v=stack-13"></script>
+  <script src="./sketch.js?v=stack-13"></script>
   <script>
     (() => {
       const button = document.querySelector("[data-share-link]");

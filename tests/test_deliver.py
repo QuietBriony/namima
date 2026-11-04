@@ -28,6 +28,34 @@ def test_resolve_handoff_fallback(monkeypatch, tmp_path):
     assert p == tmp_path / "deliveries" and src.startswith("fallback")
 
 
+def test_resolve_handoff_prefers_drive_root_music(monkeypatch, tmp_path):
+    monkeypatch.delenv("NAMIMA_HANDOFF_DIR", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    current = tmp_path / "マイドライブ" / "Music"
+    legacy = tmp_path / "マイドライブ" / "AI連携" / "Music"
+    current.mkdir(parents=True)
+    legacy.mkdir(parents=True)
+    assert resolve_handoff_dir() == (current, "google-drive")
+
+
+def test_resolve_handoff_keeps_legacy_drive_compatible(monkeypatch, tmp_path):
+    monkeypatch.delenv("NAMIMA_HANDOFF_DIR", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    legacy = tmp_path / "マイドライブ" / "AI連携" / "Music"
+    legacy.mkdir(parents=True)
+    assert resolve_handoff_dir() == (legacy, "google-drive")
+
+
+def test_current_english_drive_wins_over_legacy_japanese(monkeypatch, tmp_path):
+    monkeypatch.delenv("NAMIMA_HANDOFF_DIR", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    current = tmp_path / "My Drive" / "Music"
+    legacy = tmp_path / "マイドライブ" / "AI連携" / "Music"
+    current.mkdir(parents=True)
+    legacy.mkdir(parents=True)
+    assert resolve_handoff_dir() == (current, "google-drive")
+
+
 def test_find_ffmpeg_shape():
     ff, src = find_ffmpeg()
     assert src in ("env:NAMIMA_FFMPEG", "PATH", "imageio_ffmpeg", "none")

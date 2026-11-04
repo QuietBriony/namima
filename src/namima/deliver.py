@@ -16,8 +16,8 @@ Usage (from the namima repo root, any OS / CPU):
 
 Resolution order (override with flags / env):
   ffmpeg      : $NAMIMA_FFMPEG -> `ffmpeg` on PATH -> imageio_ffmpeg bundled binary -> none (wav only)
-  hand-off dir: --handoff-dir -> $NAMIMA_HANDOFF_DIR -> <home>/マイドライブ/AI連携/Music
-                -> G:/マイドライブ/AI連携/Music -> <home>/My Drive/AI連携/Music -> ./deliveries (warn)
+  hand-off dir: --handoff-dir -> $NAMIMA_HANDOFF_DIR -> Google Drive root/Music
+                -> legacy Google Drive root/AI連携/Music -> ./deliveries (warn)
 Subprocesses are launched from Python with Path objects, so non-ASCII user
 folders (平成造園 ...) never pass through a Git-Bash shell line.
 """
@@ -44,7 +44,8 @@ from .generator import write_wav24
 from .idm_ambient import AmbientConfig, MODES, render, add_variation_args, variation_kwargs
 
 __version__ = "0.2.0"
-HANDOFF_SUBPATH = Path("AI連携") / "Music"
+HANDOFF_SUBPATH = Path("Music")
+LEGACY_HANDOFF_SUBPATH = Path("AI連携") / "Music"
 
 
 # =============================================================================
@@ -66,12 +67,15 @@ def find_ffmpeg() -> tuple[str | None, str]:
 
 def handoff_candidates() -> list[Path]:
     home = Path.home()
-    return [
-        home / "マイドライブ" / HANDOFF_SUBPATH,
-        Path("G:/") / "マイドライブ" / HANDOFF_SUBPATH,
-        home / "My Drive" / HANDOFF_SUBPATH,
-        home / "Google Drive" / "マイドライブ" / HANDOFF_SUBPATH,
+    drive_roots = [
+        home / "マイドライブ",
+        Path("G:/") / "マイドライブ",
+        home / "My Drive",
+        home / "Google Drive" / "マイドライブ",
     ]
+    return [root / subpath
+            for subpath in (HANDOFF_SUBPATH, LEGACY_HANDOFF_SUBPATH)
+            for root in drive_roots]
 
 
 def resolve_handoff_dir(explicit: str | None = None, fallback: Path | None = None) -> tuple[Path, str]:

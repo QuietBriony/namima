@@ -8,7 +8,7 @@
 - handoff: SHA-256 of both + the notes file (recipe/measurements/verdict written by the caller)
 - the packet is assembled in <out>/<packet-dir-name>/ (default <out> = <wav folder>/packet)
 - --deliver copies the three files to the Drive lane deliveries/<packet-dir-name>/ (new folder only).
-  Hand-off dir: --handoff-dir -> NAMIMA_HANDOFF_DIR -> Google Drive (AI連携/Music); refuses to fall
+  Hand-off dir: --handoff-dir -> NAMIMA_HANDOFF_DIR -> Google Drive (Music; legacy AI連携/Music); refuses to fall
   back to ./deliveries so nothing lands in the repo.
 """
 from __future__ import annotations
@@ -63,7 +63,7 @@ def main(argv=None) -> int:
     if a.deliver:
         hd, hsrc = resolve_handoff_dir(a.handoff_dir)
         if hsrc.startswith("fallback"):
-            raise SystemExit("hand-off dir not found (Google Drive AI連携/Music); pass --handoff-dir or set NAMIMA_HANDOFF_DIR")
+            raise SystemExit("hand-off dir not found (Google Drive Music); pass --handoff-dir or set NAMIMA_HANDOFF_DIR")
         dest = hd / "deliveries" / pdir
         if dest.exists():
             raise SystemExit(f"refusing to write into existing packet folder: {dest}")

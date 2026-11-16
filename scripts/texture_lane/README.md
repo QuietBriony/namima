@@ -86,8 +86,9 @@ python scripts/texture_lane/make_packet.py <W>/ace-T1-rain-leaves-final-C-48k24.
 ```
 
 `<W>/packet/<packet>/` に master wav（48 kHz / 24-bit）・iphone m4a・handoff.md（SHA-256 + notes）。`--deliver` で
-Drive レーンの `deliveries/<packet>/` へコピー（新規フォルダのみ。Drive が見つからなければ止まる。
-`--handoff-dir` / `NAMIMA_HANDOFF_DIR` で指定可）。
+Drive レーンの `deliveries/<packet>/` へ **iphone m4a と handoff.md だけ**をコピー（新規フォルダのみ。Drive が見つからなければ止まる。
+`--handoff-dir` / `NAMIMA_HANDOFF_DIR` で指定可）。master wav は 2026-11-04 からクラウドに置かず、作った PC の
+`<W>/packet/<packet>/` に残す（`scripts/deliver.py` と同じ。Drive にも置く時だけ `--deliver-master` を足す）。
 
 ### 8. 1 時間動画
 
@@ -140,8 +141,9 @@ verdict 表記は「AI判定（本人委任・基準=睡眠Drift: 優しさ/根�
 
 ## 納品済み・再現性
 
-- 納品 packet: Drive レーン `AI連携/Music/deliveries/2026-10-20_285hz-drift-wave2-rain/`
-  （master wav・iphone m4a・handoff.md に recipe / 計測 / verdict / 聴きどころ）。
+- 納品 packet: Drive レーン（マイドライブ直下の `Music`）の `deliveries/2026-10-20_285hz-drift-wave2-rain/`
+  （iphone m4a・handoff.md に recipe / 計測 / verdict / 聴きどころ）。master wav は納品時は同じフォルダにあったが、
+  2026-11-04 に Drive から外して PC 保管へ移した（フォルダには保管先のメモだけ残る）。
 - 2026-10-20 に元の作業スクリプトと突き合わせ済み: 手順 4 の 3 コールは採用ベッドと**同一バイト**、手順 8 の
   `--from-master` の 44.1k/16 は YouTube 素材と同一バイト。
 - 手順 5 の層ねは納品 master と ±8 LSB（24-bit・≈ −120 dBFS）以内で一致し、計測値は丸め桁で全キー一致

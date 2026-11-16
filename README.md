@@ -71,8 +71,9 @@ actual listening and DAW import still require human review.
 
 `namima.deliver` turns a render into the shared hand-off packet
 (`-master.wav` / `-iphone.m4a` / `-handoff.md` with SHA-256 + seed recipe) and
-drops it in the Google Drive folder every machine syncs (`マイドライブ/AI連携/Music`,
-override with `NAMIMA_HANDOFF_DIR`). CPU-only, deterministic, no GPU.
+drops it in the Google Drive folder every machine syncs: the `Music` folder at the
+root of My Drive (`マイドライブ/Music`; the older `AI連携/Music` location is still
+found as a fallback; override with `NAMIMA_HANDOFF_DIR`). CPU-only, deterministic, no GPU.
 
 ```bash
 python scripts/deliver.py doctor                     # deps / ffmpeg / Drive dir / render speed on THIS machine
@@ -81,12 +82,14 @@ python scripts/deliver.py long  --name idm-ambient --mode idm --bars 144 --seed 
 ```
 
 ffmpeg resolution: `NAMIMA_FFMPEG` → PATH → `imageio-ffmpeg` (optional) → none (wav only).
-Judgement clips deliver only the m4a + handoff; `long` delivers the full packet.
+Both `judge` and `long` deliver only the m4a + handoff; the master wav stays in
+`--out-dir` on the rendering PC unless `--deliver-master` is given (masters are kept
+on a PC, not in the cloud).
 
 Catalogue + audition reel (same hand-off dir):
 
 ```bash
-python scripts/catalog_deliveries.py                          # deliveries/CATALOG.md + catalog.csv from catalog.json + files on disk
+python scripts/catalog_deliveries.py                          # CATALOG.md + catalog.csv next to catalog.json (deliveries/00_カタログ・制作ノート/), from catalog.json + files on disk
 python scripts/catalog_deliveries.py --set-verdict <packet> "採用。酸をもう少し前へ"   # record the human verdict
 python scripts/audition_reel.py --plan deliveries/reel-plan-v1.json   # one m4a + cue sheet of every packet's key passage
 ```

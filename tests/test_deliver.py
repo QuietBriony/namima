@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from namima.deliver import (  # noqa: E402
-    resolve_handoff_dir, find_ffmpeg, handoff_md, write_packet, sha256,
+    resolve_handoff_dir, find_ffmpeg, handoff_md, write_packet, sha256, main as deliver_main,
 )
 from namima.idm_ambient import AmbientConfig, render  # noqa: E402
 
@@ -72,6 +72,19 @@ def test_packet_without_ffmpeg(tmp_path):
     assert sha256(pk["wav"]) in md and "unit-test-s1-4bars" in md and "Re-render" in md
     names = sorted(p.name for p in hd.iterdir())
     assert names == ["unit-test-s1-4bars-handoff.md", "unit-test-s1-4bars-master.wav"]
+
+
+def test_long_keeps_master_local_unless_asked(tmp_path, monkeypatch):
+    monkeypatch.setattr("namima.deliver.find_ffmpeg", lambda: (None, "none"))
+    out, drive = tmp_path / "out", tmp_path / "drive"
+    args = ["long", "--name", "unit", "--mode", "soft", "--bars", "4", "--seed", "1",
+            "--out-dir", str(out), "--handoff-dir", str(drive)]
+    assert deliver_main(args) == 0
+    (master,) = out.glob("unit-soft-s1-4bars-*-master.wav")
+    base = master.name[:-len("-master.wav")]
+    assert [p.name for p in drive.iterdir()] == [f"{base}-handoff.md"]
+    assert deliver_main(args + ["--deliver-master"]) == 0
+    assert sorted(p.name for p in drive.iterdir()) == [f"{base}-handoff.md", f"{base}-master.wav"]
 
 
 def test_handoff_md_structure_lines():

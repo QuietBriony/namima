@@ -1,13 +1,15 @@
 """Wave-2 packet writer: lane-convention packet (master 48k/24 + iphone m4a + handoff.md) for a bedded track.
 
     python scripts/texture_lane/make_packet.py <bedded-48k24.wav> <packet-dir-name> <base> <handoff-notes.md>
-        [--out <dir>] [--deliver] [--handoff-dir <dir>]
+        [--out <dir>] [--deliver [--deliver-master]] [--handoff-dir <dir>]
 
 - master: copies the 48 kHz/24-bit wav as <base>-master.wav
 - iphone: AAC-LC 192k fast-start via namima.deliver.encode (ffmpeg via namima.deliver.find_ffmpeg)
 - handoff: SHA-256 of both + the notes file (recipe/measurements/verdict written by the caller)
 - the packet is assembled in <out>/<packet-dir-name>/ (default <out> = <wav folder>/packet)
-- --deliver copies the three files to the Drive lane deliveries/<packet-dir-name>/ (new folder only).
+- --deliver copies the m4a + handoff to the Drive lane deliveries/<packet-dir-name>/ (new folder only).
+  The master wav stays in the local packet folder unless --deliver-master is given (same as
+  scripts/deliver.py: since 2026-11-04 masters are kept on a PC, not in the cloud).
   Hand-off dir: --handoff-dir -> NAMIMA_HANDOFF_DIR -> Google Drive (Music; legacy AI連携/Music); refuses to fall
   back to ./deliveries so nothing lands in the repo.
 """
@@ -31,9 +33,14 @@ def main(argv=None) -> int:
     ap.add_argument("base", help="file base name, e.g. 285hz-drift-wave2-rain-s200285-9m44s")
     ap.add_argument("notes", metavar="handoff-notes.md", help="recipe / measurements / verdict appended to the handoff")
     ap.add_argument("--out", default=None, help="packet work root (default: <wav folder>/packet)")
-    ap.add_argument("--deliver", action="store_true", help="copy the packet to <hand-off dir>/deliveries/<packet-dir-name>/")
+    ap.add_argument("--deliver", action="store_true",
+                    help="copy the m4a + handoff to <hand-off dir>/deliveries/<packet-dir-name>/")
+    ap.add_argument("--deliver-master", action="store_true",
+                    help="with --deliver, also copy the master wav (default: it stays in the local packet folder)")
     ap.add_argument("--handoff-dir", default=None, help="override the hand-off dir (else NAMIMA_HANDOFF_DIR / Google Drive)")
     a = ap.parse_args(argv)
+    if a.deliver_master and not a.deliver:
+        ap.error("--deliver-master needs --deliver")
 
     src = Path(a.src)
     pdir, base = a.packet_dir, a.base
@@ -49,6 +56,8 @@ def main(argv=None) -> int:
              f"- Packaged: {platform.node()} / wave-2 texture lane (namima.texture_layer + ACE-Step bed) — CPU layering, deterministic given core seed + bed file",
              "", "## Delivery assets", "",
              f"- `{master.name}`", "  - 48 kHz / 24-bit PCM", f"  - SHA-256: `{sha256(master)}`"]
+    if a.deliver and not a.deliver_master:
+        lines += ["  - Not copied to Drive: kept on the packaging PC, in the local packet folder"]
     if m4a:
         lines += [f"- `{m4a.name}`", "  - AAC-LC 192 kbps, fast-start", f"  - SHA-256: `{sha256(m4a)}`"]
     lines += ["", notes.rstrip(), ""]
@@ -68,10 +77,12 @@ def main(argv=None) -> int:
         if dest.exists():
             raise SystemExit(f"refusing to write into existing packet folder: {dest}")
         dest.mkdir(parents=True)
-        for p in (master, m4a, md):
+        for p in ((master,) if a.deliver_master else ()) + (m4a, md):
             if p:
                 shutil.copy2(p, dest / p.name)
         print("delivered ->", dest, f"({hsrc})")
+        if not a.deliver_master:
+            print("  master wav kept locally (not on Drive):", master)
     return 0
 
 

@@ -4,9 +4,12 @@ CPU-only (numpy/scipy), deterministic, GPU never touched.  One command produces
 the worker-convention hand-off packet and drops it in the shared Google Drive
 folder that every machine syncs:
 
-    <base>-master.wav   48 kHz / 24-bit PCM
+    <base>-master.wav   48 kHz / 24-bit PCM           (stays in --out-dir; Drive only with --deliver-master)
     <base>-iphone.m4a   AAC-LC 192 kbps, fast-start   (phone listening via the Drive app)
     <base>-handoff.md   SHA-256 of both, recipe, structure timeline, knobs
+
+Since 2026-11-04 masters are kept on a PC, not in the cloud, so `judge` and `long`
+both deliver only the m4a + handoff unless --deliver-master is given.
 
 Usage (from the namima repo root, any OS / CPU):
 
@@ -157,7 +160,7 @@ def handoff_md(base: str, meta: dict, files: dict[str, Path], recipe_cmd: str, n
 
 
 def write_packet(stereo: np.ndarray, meta: dict, base: str, out_dir: Path, handoff_dir: Path | None,
-                 ff: str | None, recipe_cmd: str, deliver_master: bool = True, notes: str = "") -> dict:
+                 ff: str | None, recipe_cmd: str, deliver_master: bool = False, notes: str = "") -> dict:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     wav = out_dir / f"{base}-master.wav"
@@ -256,10 +259,13 @@ def cmd_long(a) -> int:
     secs = int(round(meta["frames"] / meta["sample_rate"]))
     base = a.base or f"{a.name}-{mode}-s{a.seed}{'-' + a.tag if a.tag else ''}-{a.bars}bars-{secs // 60}m{secs % 60:02d}s"
     cmd = f"python scripts/deliver.py long --name {a.name} --mode {mode} --bars {a.bars} --seed {a.seed}{variation_cli(a)}"
-    pk = write_packet(stereo, meta, base, Path(a.out_dir), hd, ff, cmd, deliver_master=True, notes=a.notes or "")
+    pk = write_packet(stereo, meta, base, Path(a.out_dir), hd, ff, cmd, deliver_master=a.deliver_master,
+                      notes=a.notes or "")
     print(f"rendered {secs}s in {dt:.1f}s -> {pk['wav']}")
     for p in pk["delivered"]:
         print(f"delivered -> {p}")
+    if not a.deliver_master:
+        print(f"master wav kept locally (not delivered; add --deliver-master to copy it): {pk['wav']}")
     if not ff:
         print("NOTE: no ffmpeg found — m4a/mp3 skipped (install ffmpeg or `pip install imageio-ffmpeg`)")
     return 0
@@ -308,8 +314,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     j.add_argument("--deliver-master", action="store_true",
                    help="also copy the wav masters to the hand-off dir (default: m4a + handoff only)")
     j.set_defaults(fn=cmd_judge)
-    lg = sub.add_parser("long", help="render one long form and deliver the full packet")
+    lg = sub.add_parser("long", help="render one long form and deliver the packet (m4a + handoff)")
     _common(lg)
+    lg.add_argument("--deliver-master", action="store_true",
+                    help="also copy the wav master to the hand-off dir (default: it stays in --out-dir)")
     lg.add_argument("--mode", choices=MODES, default="idm")
     lg.add_argument("--bars", type=int, default=144)
     lg.add_argument("--base", default=None, help="override the packet base name")

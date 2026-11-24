@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -28,9 +31,19 @@ def test_resolve_handoff_fallback(monkeypatch, tmp_path):
     assert p == tmp_path / "deliveries" and src.startswith("fallback")
 
 
-def test_resolve_handoff_prefers_drive_root_music(monkeypatch, tmp_path):
+@pytest.fixture
+def mounted_drive(monkeypatch, tmp_path):
+    # Keep the resolver's search order and directory checks on the temporary filesystem.
+    drive = tmp_path / "mounted-drive"
+    roots = {"G:/": drive}
+    paths = Mock(spec=Path, side_effect=roots.__getitem__)
+    paths.home.return_value = tmp_path
+    monkeypatch.setattr("namima.deliver.Path", paths)
     monkeypatch.delenv("NAMIMA_HANDOFF_DIR", raising=False)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    return drive
+
+
+def test_resolve_handoff_prefers_drive_root_music(tmp_path, mounted_drive):
     current = tmp_path / "マイドライブ" / "Music"
     legacy = tmp_path / "マイドライブ" / "AI連携" / "Music"
     current.mkdir(parents=True)
@@ -38,22 +51,29 @@ def test_resolve_handoff_prefers_drive_root_music(monkeypatch, tmp_path):
     assert resolve_handoff_dir() == (current, "google-drive")
 
 
-def test_resolve_handoff_keeps_legacy_drive_compatible(monkeypatch, tmp_path):
-    monkeypatch.delenv("NAMIMA_HANDOFF_DIR", raising=False)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+def test_resolve_handoff_keeps_legacy_drive_compatible(tmp_path, mounted_drive):
     legacy = tmp_path / "マイドライブ" / "AI連携" / "Music"
     legacy.mkdir(parents=True)
     assert resolve_handoff_dir() == (legacy, "google-drive")
 
 
-def test_current_english_drive_wins_over_legacy_japanese(monkeypatch, tmp_path):
-    monkeypatch.delenv("NAMIMA_HANDOFF_DIR", raising=False)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+def test_current_english_drive_wins_over_legacy_japanese(tmp_path, mounted_drive):
     current = tmp_path / "My Drive" / "Music"
     legacy = tmp_path / "マイドライブ" / "AI連携" / "Music"
     current.mkdir(parents=True)
     legacy.mkdir(parents=True)
     assert resolve_handoff_dir() == (current, "google-drive")
+
+
+@pytest.mark.parametrize("mounted", [False, True], ids=["unmounted", "mounted"])
+def test_mounted_drive_priority_over_english_home(tmp_path, mounted_drive, mounted):
+    home_music = tmp_path / "My Drive" / "Music"
+    drive_music = mounted_drive / "マイドライブ" / "Music"
+    home_music.mkdir(parents=True)
+    if mounted:
+        drive_music.mkdir(parents=True)
+    expected = drive_music if mounted else home_music
+    assert resolve_handoff_dir() == (expected, "google-drive")
 
 
 def test_find_ffmpeg_shape():
